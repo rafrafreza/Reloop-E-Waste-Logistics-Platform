@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db
 import models
-from routers import auth
+from routers import auth, pickups
 
 # Create all database tables based on models
 models.Base.metadata.create_all(bind=engine)
@@ -11,6 +11,7 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="E-Waste Connect Backend API", version="1.0.0")
 
 app.include_router(auth.router)
+app.include_router(pickups.router)
 
 @app.get("/")
 def read_root():

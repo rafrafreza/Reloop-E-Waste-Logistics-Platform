@@ -26,6 +26,10 @@ class User(Base):
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     is_active = Column(Boolean, default=True)
 
+    customer_profile = relationship("Customer", uselist=False, cascade="all, delete-orphan")
+    driver_profile = relationship("Driver", uselist=False, cascade="all, delete-orphan")
+    company_profile = relationship("Company", uselist=False, cascade="all, delete-orphan")
+
 class Driver(Base):
     __tablename__ = "Driver"
 
@@ -69,6 +73,8 @@ class PickupRequest(Base):
     total_estimated_weight_kg = Column(DECIMAL(10, 2))
     total_estimated_price = Column(DECIMAL(10, 2))
     notes = Column(Text)
+
+    items = relationship("EWasteItem", backref="pickup_request", cascade="all, delete-orphan")
 
 class EWasteItem(Base):
     __tablename__ = "e_waste_items"
