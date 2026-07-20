@@ -29,23 +29,21 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
-class CustomerCreate(UserCreate):
-    address: str
+class ProfileUpdate(BaseModel):
+    # Shared optional fields for Customer and Company
+    address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
-    postal_code: str
-
-class DriverCreate(UserCreate):
+    postal_code: Optional[str] = None
+    
+    # Driver specific
     vehicle_type: Optional[str] = None
-    vehicle_registration_number: str
+    vehicle_registration_number: Optional[str] = None
     max_capacity_kg: Optional[float] = None
-
-class CompanyCreate(UserCreate):
+    is_available: Optional[bool] = None
+    
+    # Company specific
     certification_id: Optional[str] = None
-    address: str
-    city: Optional[str] = None
-    state: Optional[str] = None
-    postal_code: str
 
 class CustomerOut(BaseModel):
     address: str

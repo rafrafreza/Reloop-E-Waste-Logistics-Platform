@@ -45,9 +45,9 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const tokenData = await loginUser(email, password);
+      const tokenData = await loginUser(email, password, role);
       storeToken(tokenData);
-      navigate('/');
+      navigate('/dashboard/new-request');
     } catch (err) {
       const detail = err.response?.data?.detail || 'Login failed. Please check your credentials.';
       setApiError(detail);

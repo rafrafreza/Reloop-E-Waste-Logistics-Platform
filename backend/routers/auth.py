@@ -42,8 +42,8 @@ def check_existing_user(user: schemas.UserCreate, db: Session):
     if db_user_phone:
         raise HTTPException(status_code=400, detail="Phone number already registered")
 
-@router.post("/register/customer", response_model=schemas.UserOut)
-def register_customer(user: schemas.CustomerCreate, db: Session = Depends(get_db)):
+@router.post("/register", response_model=schemas.UserOut)
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     check_existing_user(user, db)
     hashed_password = auth_utils.get_password_hash(user.password)
     
@@ -52,73 +52,9 @@ def register_customer(user: schemas.CustomerCreate, db: Session = Depends(get_db
         email=user.email,
         password=hashed_password,
         phone_number=user.phone_number,
-        role=models.RoleEnum.CUSTOMER
+        role=user.role
     )
     db.add(new_user)
-    db.flush()
-    
-    new_customer = models.Customer(
-        customer_id=new_user.id,
-        address=user.address,
-        city=user.city,
-        state=user.state,
-        postal_code=user.postal_code
-    )
-    db.add(new_customer)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
-@router.post("/register/driver", response_model=schemas.UserOut)
-def register_driver(user: schemas.DriverCreate, db: Session = Depends(get_db)):
-    check_existing_user(user, db)
-    hashed_password = auth_utils.get_password_hash(user.password)
-    
-    new_user = models.User(
-        name=user.name,
-        email=user.email,
-        password=hashed_password,
-        phone_number=user.phone_number,
-        role=models.RoleEnum.DRIVER
-    )
-    db.add(new_user)
-    db.flush()
-    
-    new_driver = models.Driver(
-        driver_id=new_user.id,
-        vehicle_type=user.vehicle_type,
-        vehicle_registration_number=user.vehicle_registration_number,
-        max_capacity_kg=user.max_capacity_kg
-    )
-    db.add(new_driver)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
-@router.post("/register/company", response_model=schemas.UserOut)
-def register_company(user: schemas.CompanyCreate, db: Session = Depends(get_db)):
-    check_existing_user(user, db)
-    hashed_password = auth_utils.get_password_hash(user.password)
-    
-    new_user = models.User(
-        name=user.name,
-        email=user.email,
-        password=hashed_password,
-        phone_number=user.phone_number,
-        role=models.RoleEnum.RECYCLING_COMPANY
-    )
-    db.add(new_user)
-    db.flush()
-    
-    new_company = models.Company(
-        company_id=new_user.id,
-        certification_id=user.certification_id,
-        address=user.address,
-        city=user.city,
-        state=user.state,
-        postal_code=user.postal_code
-    )
-    db.add(new_company)
     db.commit()
     db.refresh(new_user)
     return new_user
@@ -137,6 +73,3 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/me", response_model=schemas.UserProfileOut)
-def get_current_user_profile(current_user: models.User = Depends(get_current_user)):
-    return current_user

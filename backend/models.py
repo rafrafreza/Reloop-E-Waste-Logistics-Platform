@@ -35,7 +35,7 @@ class Driver(Base):
 
     driver_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), primary_key=True)
     vehicle_type = Column(String(32))
-    vehicle_registration_number = Column(String(16), nullable=False)
+    vehicle_registration_number = Column(String(16))
     max_capacity_kg = Column(DECIMAL(10, 2))
     is_available = Column(Boolean, default=True)
 
@@ -44,19 +44,19 @@ class Company(Base):
 
     company_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), primary_key=True)
     certification_id = Column(String(100))
-    address = Column(Text, nullable=False)
+    address = Column(Text)
     city = Column(String(32))
     state = Column(String(32))
-    postal_code = Column(String(8), nullable=False)
+    postal_code = Column(String(8))
 
 class Customer(Base):
     __tablename__ = "Customer"
 
     customer_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE"), primary_key=True)
-    address = Column(Text, nullable=False)
+    address = Column(Text)
     city = Column(String(32))
     state = Column(String(32))
-    postal_code = Column(String(8), nullable=False)
+    postal_code = Column(String(8))
 
 class PickupRequest(Base):
     __tablename__ = "pickup_requests"
