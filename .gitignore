@@ -1,11 +1,17 @@
-# Databases
-*.db
-*.sqlite3
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/.env
 
-# Python virtual environments & cache
-venv/
-__pycache__/
-*.pyc
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
 
-# Environment variables
-.env
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
