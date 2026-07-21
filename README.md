@@ -1,11 +1,10 @@
 # Reloop — E-Waste Pickup & Recycling Logistics Platform
 
-A full-stack college project that models a three-sided e-waste logistics
+A three-sided e-waste logistics
 marketplace: **consumers** schedule pickups, **segregation centres** quote
 and process them, and **pickup partners** handle the physical handover.
 
-Built with **React (Vite) + FastAPI + SQLite/SQLAlchemy**. No Docker, Redis,
-or Celery — everything runs locally with two commands.
+Built with **React (Vite) + FastAPI + SQLite/SQLAlchemy**.
 
 ---
 
