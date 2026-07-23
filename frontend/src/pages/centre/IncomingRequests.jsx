@@ -6,6 +6,7 @@ import RequestCard from "../../components/RequestCard";
 import useDefaultCharges from "../../hooks/useDefaultCharges";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
+import PaginatedList from "../../components/PaginatedList";
 
 export default function IncomingRequests() {
   const defaults = useDefaultCharges();
@@ -51,19 +52,21 @@ export default function IncomingRequests() {
       <h1 className="text-xl font-semibold text-ink">Incoming Requests</h1>
       <p className="mt-1 text-sm text-inkfaint">Pending pickup requests in your service city, awaiting a quotation.</p>
 
-      <div className="mt-6 space-y-4">
-        {requests.length === 0 ? (
-          <EmptyState title="No pending requests" description="New requests from your city will show up here." />
-        ) : (
-          requests.map((r) => (
+      <div className="mt-6">
+        <PaginatedList
+          items={requests}
+          searchFields={['id', 'status', r => r.address?.city, r => r.address?.street, r => r.items?.map(i => i.category_name).join(" ")]}
+          renderItem={(r) => (
             <RequestCard
               key={r.id}
               request={r}
               basePath="/centre/requests"
               extra={<button onClick={() => openQuote(r)} className="btn-primary">Quote</button>}
             />
-          ))
-        )}
+          )}
+          emptyState={<EmptyState title="No pending requests" description="New requests from your city will show up here." />}
+          itemsPerPage={4}
+        />
       </div>
 
       <Modal open={!!quoting} onClose={() => setQuoting(null)} title={quoting ? `Quote request #${quoting.id}` : ""}>

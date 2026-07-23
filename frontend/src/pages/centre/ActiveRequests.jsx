@@ -3,6 +3,7 @@ import { centreApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
+import PaginatedList from "../../components/PaginatedList";
 
 export default function ActiveRequests() {
   const [requests, setRequests] = useState(null);
@@ -60,11 +61,11 @@ export default function ActiveRequests() {
       <h1 className="text-xl font-semibold text-ink">Active Pipeline</h1>
       <p className="mt-1 text-sm text-inkfaint">Requests your centre owns, from acceptance to arrival.</p>
 
-      <div className="mt-6 space-y-4">
-        {requests.length === 0 ? (
-          <EmptyState title="Nothing active right now" description="Requests move here once a consumer accepts your quotation." />
-        ) : (
-          requests.map((r) => (
+      <div className="mt-6">
+        <PaginatedList
+          items={requests}
+          searchFields={['id', 'status', r => r.address?.city, r => r.address?.street, r => r.items?.map(i => i.category_name).join(" ")]}
+          renderItem={(r) => (
             <RequestCard
               key={r.id}
               request={r}
@@ -77,8 +78,10 @@ export default function ActiveRequests() {
                 ) : null
               }
             />
-          ))
-        )}
+          )}
+          emptyState={<EmptyState title="Nothing active right now" description="Requests move here once a consumer accepts your quotation." />}
+          itemsPerPage={4}
+        />
       </div>
 
       <Modal open={!!assigning} onClose={() => setAssigning(null)} title={assigning ? `Assign partner — request #${assigning.id}` : ""}>

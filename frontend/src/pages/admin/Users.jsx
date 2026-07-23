@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "../../api/endpoints";
-import { PageLoader } from "../../components/ui/Primitives";
+import { PageLoader, EmptyState } from "../../components/ui/Primitives";
+import PaginatedList from "../../components/PaginatedList";
 
 const ROLES = ["", "CONSUMER", "PARTNER", "CENTRE", "ADMIN"];
 
@@ -47,42 +48,49 @@ export default function Users() {
         {!users ? (
           <PageLoader />
         ) : (
-          <div className="overflow-x-auto rounded border border-ink/10 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 bg-paperdim">
-                  <th className="px-4 py-3 field-label">Name</th>
-                  <th className="px-4 py-3 field-label">Email</th>
-                  <th className="px-4 py-3 field-label">Role</th>
-                  <th className="px-4 py-3 field-label">Joined</th>
-                  <th className="px-4 py-3 field-label">Status</th>
-                  <th className="px-4 py-3 field-label"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b border-ink/5 last:border-0">
-                    <td className="px-4 py-3 text-ink">{u.full_name}</td>
-                    <td className="px-4 py-3 text-inkfaint">{u.email}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-inkfaint">{u.role}</td>
-                    <td className="px-4 py-3 text-inkfaint">{formatDate(u.created_at)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${u.is_active ? "text-circuit bg-circuitlight border-circuit/40" : "text-brick bg-bricklight border-brick/40"}`}>
-                        {u.is_active ? "Active" : "Disabled"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.role !== "ADMIN" && (
-                        <button onClick={() => toggle(u.id)} className="text-xs text-circuit hover:underline">
-                          {u.is_active ? "Deactivate" : "Activate"}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PaginatedList
+            items={users}
+            searchFields={['full_name', 'email', 'role']}
+            renderItem={(u) => (
+              <tr key={u.id} className="border-b border-ink/5 last:border-0">
+                <td className="px-4 py-3 text-ink">{u.full_name}</td>
+                <td className="px-4 py-3 text-inkfaint">{u.email}</td>
+                <td className="px-4 py-3 font-mono text-xs text-inkfaint">{u.role}</td>
+                <td className="px-4 py-3 text-inkfaint">{formatDate(u.created_at)}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${u.is_active ? "text-circuit bg-circuitlight border-circuit/40" : "text-brick bg-bricklight border-brick/40"}`}>
+                    {u.is_active ? "Active" : "Disabled"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {u.role !== "ADMIN" && (
+                    <button onClick={() => toggle(u.id)} className="text-xs text-circuit hover:underline">
+                      {u.is_active ? "Deactivate" : "Activate"}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            )}
+            renderWrapper={(children) => (
+              <div className="overflow-x-auto rounded border border-ink/10 bg-white">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-ink/10 bg-paperdim">
+                      <th className="px-4 py-3 field-label">Name</th>
+                      <th className="px-4 py-3 field-label">Email</th>
+                      <th className="px-4 py-3 field-label">Role</th>
+                      <th className="px-4 py-3 field-label">Joined</th>
+                      <th className="px-4 py-3 field-label">Status</th>
+                      <th className="px-4 py-3 field-label"></th>
+                    </tr>
+                  </thead>
+                  <tbody>{children}</tbody>
+                </table>
+              </div>
+            )}
+            emptyState={<EmptyState title="No users found" />}
+            itemsPerPage={10}
+          />
         )}
       </div>
     </div>
