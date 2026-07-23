@@ -21,7 +21,7 @@ export default function Pricing() {
       {!categories ? (
         <PageLoader />
       ) : (
-        <div className="mt-10 overflow-hidden rounded border border-ink/10 bg-white">
+        <div className="mt-10 overflow-x-auto rounded border border-ink/10 bg-white">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-ink/10 bg-paperdim">

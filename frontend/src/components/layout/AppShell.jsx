@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import NotificationBell from "../NotificationBell";
 
@@ -34,6 +35,11 @@ const NAV_ITEMS = {
   ],
 };
 
+// The mobile bottom bar shows at most 5 buttons. If a role has more than 5
+// nav items, the first 4 are shown directly and the rest are tucked behind
+// a "Menu" button (the 5th slot).
+const MAX_BOTTOM_BUTTONS = 5;
+
 const ICONS = {
   grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
   list: "M4 6h16M4 12h16M4 18h10",
@@ -46,6 +52,8 @@ const ICONS = {
   user: "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
   tag: "M20.59 13.41L11 3.83A2 2 0 009.59 3.24L3 3v6.59a2 2 0 00.59 1.41l9.59 9.59a2 2 0 002.82 0l4.59-4.59a2 2 0 000-2.82zM7 7h.01",
   settings: "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.39.68.71.92",
+  menu: "M4 7h16M4 12h16M4 17h16",
+  close: "M6 6l12 12M18 6L6 18",
 };
 
 function Icon({ name, className = "" }) {
@@ -64,10 +72,32 @@ const ROLE_LABEL = {
   ADMIN: "Admin Console",
 };
 
+function BrandMark({ small = false }) {
+  const boxClass = small ? "h-6 w-6" : "h-7 w-7";
+  const iconSize = small ? 14 : 16;
+  return (
+    <div className={`flex ${boxClass} items-center justify-center rounded bg-ink text-circuit`}>
+      <svg width={iconSize} height={iconSize} viewBox="0 0 32 32">
+        <path d="M16 6 L24 11 V21 L16 26 L8 21 V11 Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="16" cy="16" r="3" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
+
 export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const items = NAV_ITEMS[user.role] || [];
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const hasOverflow = items.length > MAX_BOTTOM_BUTTONS;
+  const primaryItems = hasOverflow ? items.slice(0, MAX_BOTTOM_BUTTONS - 1) : items;
+  const overflowItems = hasOverflow ? items.slice(MAX_BOTTOM_BUTTONS - 1) : [];
+  const isOverflowActive = overflowItems.some((item) =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)
+  );
 
   const handleLogout = () => {
     logout();
@@ -76,14 +106,10 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen bg-paper">
+      {/* Desktop sidebar - unchanged, hidden below md */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-ink/10 bg-white md:flex">
         <div className="flex items-center gap-2 border-b border-ink/10 px-5 py-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-ink text-circuit">
-            <svg width="16" height="16" viewBox="0 0 32 32">
-              <path d="M16 6 L24 11 V21 L16 26 L8 21 V11 Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              <circle cx="16" cy="16" r="3" fill="currentColor" />
-            </svg>
-          </div>
+          <BrandMark />
           <span className="font-semibold text-ink">Reloop</span>
         </div>
 
@@ -118,36 +144,102 @@ export default function AppShell() {
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col">
+        {/* Top header: brand top-left on mobile, role label top-left on
+            desktop, notification bell always top-right. */}
         <header className="flex items-center justify-between border-b border-ink/10 bg-white px-4 py-3 md:px-8">
-          <p className="field-label md:hidden">Reloop</p>
-          <p className="hidden field-label md:block">{ROLE_LABEL[user.role]}</p>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <button onClick={handleLogout} className="text-sm text-inkfaint hover:text-ink md:hidden">
-              Sign out
-            </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <BrandMark small />
+            <span className="text-sm font-semibold text-ink">Reloop</span>
           </div>
+          <p className="hidden field-label md:block">{ROLE_LABEL[user.role]}</p>
+          <NotificationBell />
         </header>
-        <nav className="flex gap-1 overflow-x-auto border-b border-ink/10 bg-white px-4 py-2 md:hidden">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `shrink-0 rounded px-3 py-1.5 text-xs font-medium ${
-                  isActive ? "bg-circuitlight text-circuitdark" : "text-inkfaint"
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+
+        <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:py-8">
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile bottom bar: up to 5 direct nav buttons, or 4 + Menu for
+          roles with more destinations - hidden on desktop. */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-ink/10 bg-white md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {primaryItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-center ${
+                isActive ? "text-circuitdark" : "text-inkfaint"
+              }`
+            }
+          >
+            <Icon name={item.icon} className="h-5 w-5 shrink-0" />
+            <span className="text-[10px] font-medium leading-tight">{item.label}</span>
+          </NavLink>
+        ))}
+
+        {hasOverflow && (
+          <button
+            onClick={() => setMenuOpen(true)}
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-center ${
+              isOverflowActive ? "text-circuitdark" : "text-inkfaint"
+            }`}
+          >
+            <Icon name="menu" className="h-5 w-5 shrink-0" />
+            <span className="text-[10px] font-medium leading-tight">Menu</span>
+          </button>
+        )}
+      </nav>
+
+      {/* Overflow drawer (bottom sheet) - only used when a role has more
+          than 5 nav destinations. */}
+      {hasOverflow && menuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-ink/40" onClick={() => setMenuOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-lg bg-white shadow-stamp animate-rise">
+            <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+              <span className="font-semibold text-ink">More</span>
+              <button onClick={() => setMenuOpen(false)} className="text-inkfaint" aria-label="Close menu">
+                <Icon name="close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <nav className="p-3">
+              {overflowItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded px-4 py-3 text-sm ${
+                      isActive ? "bg-circuitlight text-circuitdark font-medium" : "text-ink"
+                    }`
+                  }
+                >
+                  <Icon name={item.icon} className="h-5 w-5 shrink-0" />
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="border-t border-ink/10 p-3">
+              <div className="px-4 py-2">
+                <p className="text-sm font-medium text-ink">{user.full_name}</p>
+                <p className="field-label">{ROLE_LABEL[user.role]}</p>
+              </div>
+              <button onClick={handleLogout} className="btn-ghost w-full justify-start px-4">
+                <Icon name="settings" className="h-4 w-4" />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

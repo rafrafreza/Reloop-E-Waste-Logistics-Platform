@@ -34,6 +34,7 @@ def _request_query(db: Session):
         joinedload(CollectionRequest.address),
         joinedload(CollectionRequest.centre),
         joinedload(CollectionRequest.items).joinedload(RequestItem.category),
+        joinedload(CollectionRequest.items).joinedload(RequestItem.images),
         joinedload(CollectionRequest.quotation),
         joinedload(CollectionRequest.assignment).joinedload(Assignment.partner),
         joinedload(CollectionRequest.history),

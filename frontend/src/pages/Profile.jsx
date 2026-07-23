@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { authApi } from "../api/endpoints";
 import { apiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -13,7 +14,8 @@ const ROLE_LABEL = {
 };
 
 export default function Profile() {
-  const { updateUser } = useAuth();
+  const { updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const cities = useServiceCities();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState(null);
@@ -213,6 +215,21 @@ export default function Profile() {
           {pwSaving ? "Updating..." : "Update password"}
         </button>
       </form>
+
+      {/* Desktop already has "Sign out" in the sidebar; this is the mobile
+          equivalent, since the bottom nav bar doesn't always have room for
+          a separate account menu. */}
+      <div className="mt-6 md:hidden">
+        <button
+          onClick={() => {
+            logout();
+            navigate("/login");
+          }}
+          className="btn-secondary w-full text-brick"
+        >
+          Sign out
+        </button>
+      </div>
     </div>
   );
 }

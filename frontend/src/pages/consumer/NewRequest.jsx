@@ -1,13 +1,23 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { consumerApi, commonApi } from "../../api/endpoints";
-import { apiErrorMessage } from "../../api/client";
-import { PageLoader, Banner } from "../../components/ui/Primitives";
+import { consumerApi, commonApi, uploadApi } from "../../api/endpoints";
+import { apiErrorMessage, API_BASE } from "../../api/client";
+import { PageLoader, Banner, Spinner } from "../../components/ui/Primitives";
 
 const STEPS = ["Address", "Items", "Schedule & review"];
 
 function emptyItem(categoryId) {
-  return { key: Math.random().toString(36).slice(2), category_id: categoryId, description: "", quantity: 1, estimated_weight_kg: 1 };
+  return {
+    key: Math.random().toString(36).slice(2),
+    category_id: categoryId,
+    description: "",
+    quantity: 1,
+    estimated_weight_kg: 1,
+    length_cm: "",
+    breadth_cm: "",
+    height_cm: "",
+    images: [],
+  };
 }
 
 export default function NewRequest() {
@@ -21,6 +31,7 @@ export default function NewRequest() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState(null);
 
   useEffect(() => {
     Promise.all([consumerApi.listAddresses(), commonApi.categories()]).then(([addrRes, catRes]) => {
@@ -41,6 +52,28 @@ export default function NewRequest() {
   const removeItem = (key) => setItems((prev) => prev.filter((i) => i.key !== key));
   const updateItem = (key, field, value) => setItems((prev) => prev.map((i) => (i.key === key ? { ...i, [field]: value } : i)));
 
+  const handlePhotoSelect = async (key, fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setUploadingKey(key);
+    setError("");
+    try {
+      const uploaded = [];
+      for (const file of files) {
+        const res = await uploadApi.image(file);
+        uploaded.push(res.data.url);
+      }
+      setItems((prev) => prev.map((i) => (i.key === key ? { ...i, images: [...i.images, ...uploaded] } : i)));
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not upload photo"));
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const removePhoto = (key, url) =>
+    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, images: i.images.filter((u) => u !== url) } : i)));
+
   const estimatedTotal = items.reduce((sum, i) => sum + i.estimated_weight_kg * catRate(i.category_id), 0);
 
   const canProceedStep0 = addressId !== null;
@@ -59,6 +92,10 @@ export default function NewRequest() {
           description: i.description || null,
           quantity: Number(i.quantity),
           estimated_weight_kg: Number(i.estimated_weight_kg),
+          length_cm: i.length_cm !== "" ? Number(i.length_cm) : null,
+          breadth_cm: i.breadth_cm !== "" ? Number(i.breadth_cm) : null,
+          height_cm: i.height_cm !== "" ? Number(i.height_cm) : null,
+          image_urls: i.images,
         })),
       };
       const res = await consumerApi.createRequest(payload);
@@ -88,7 +125,7 @@ export default function NewRequest() {
         ))}
       </div>
 
-      <div className="ticket mt-6 p-6">
+      <div className="ticket mt-6 p-4 sm:p-6">
         {error && <div className="mb-4"><Banner kind="error">{error}</Banner></div>}
 
         {step === 0 && (
@@ -146,7 +183,49 @@ export default function NewRequest() {
                       <input type="number" min={0.1} step={0.1} className="input" value={item.estimated_weight_kg} onChange={(e) => updateItem(item.key, "estimated_weight_kg", e.target.value)} />
                     </div>
                   </div>
-                  <p className="mt-2 field-label">{catName(item.category_id)} · ₹{catRate(item.category_id)}/kg</p>
+
+                  <p className="label mt-3 mb-1.5">Dimensions (cm, optional) — helps us pick the right vehicle</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" min={0} step={0.5} className="input" placeholder="Length" value={item.length_cm} onChange={(e) => updateItem(item.key, "length_cm", e.target.value)} />
+                    <input type="number" min={0} step={0.5} className="input" placeholder="Breadth" value={item.breadth_cm} onChange={(e) => updateItem(item.key, "breadth_cm", e.target.value)} />
+                    <input type="number" min={0} step={0.5} className="input" placeholder="Height" value={item.height_cm} onChange={(e) => updateItem(item.key, "height_cm", e.target.value)} />
+                  </div>
+
+                  <p className="label mt-3 mb-1.5">Photos (optional)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {item.images.map((url) => (
+                      <div key={url} className="group relative h-16 w-16 shrink-0 overflow-hidden rounded border border-ink/10">
+                        <img src={`${API_BASE}${url}`} alt="Item" className="h-full w-full object-cover" />
+                        <button
+                          onClick={() => removePhoto(item.key, url)}
+                          className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center bg-ink/60 text-xs text-white"
+                          aria-label="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <label className="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded border border-dashed border-ink/25 text-inkfaint hover:border-ink/45">
+                      {uploadingKey === item.key ? (
+                        <Spinner />
+                      ) : (
+                        <span className="text-xl leading-none">+</span>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={uploadingKey === item.key}
+                        onChange={(e) => {
+                          handlePhotoSelect(item.key, e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <p className="mt-3 field-label">{catName(item.category_id)} · ₹{catRate(item.category_id)}/kg</p>
                 </div>
               ))}
             </div>
@@ -174,11 +253,21 @@ export default function NewRequest() {
 
             <div className="ticket-divider my-4" />
             <p className="field-label">Summary</p>
-            <ul className="mt-2 space-y-1 text-sm text-ink">
+            <ul className="mt-2 space-y-2 text-sm text-ink">
               {items.map((i) => (
-                <li key={i.key} className="flex justify-between">
-                  <span>{catName(i.category_id)} × {i.quantity}</span>
-                  <span className="font-mono text-inkfaint">{i.estimated_weight_kg} kg</span>
+                <li key={i.key} className="flex items-start justify-between gap-3">
+                  <span>
+                    {catName(i.category_id)} × {i.quantity}
+                    {(i.length_cm || i.breadth_cm || i.height_cm) && (
+                      <span className="block field-label">
+                        {i.length_cm || "?"} × {i.breadth_cm || "?"} × {i.height_cm || "?"} cm
+                      </span>
+                    )}
+                    {i.images.length > 0 && (
+                      <span className="block field-label">{i.images.length} photo{i.images.length !== 1 ? "s" : ""} attached</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-mono text-inkfaint">{i.estimated_weight_kg} kg</span>
                 </li>
               ))}
             </ul>

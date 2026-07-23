@@ -43,7 +43,7 @@ export default function Requests() {
         ) : requests.length === 0 ? (
           <EmptyState title="No requests found" />
         ) : (
-          <div className="overflow-hidden rounded border border-ink/10 bg-white">
+          <div className="overflow-x-auto rounded border border-ink/10 bg-white">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-ink/10 bg-paperdim">

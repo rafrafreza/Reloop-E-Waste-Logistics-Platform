@@ -77,7 +77,7 @@ export default function Categories() {
         <button onClick={openNew} className="btn-primary">+ Add category</button>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded border border-ink/10 bg-white">
+      <div className="mt-6 overflow-x-auto rounded border border-ink/10 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-ink/10 bg-paperdim">

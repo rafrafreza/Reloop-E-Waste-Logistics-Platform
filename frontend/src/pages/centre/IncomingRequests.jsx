@@ -4,6 +4,8 @@ import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
 import useDefaultCharges from "../../hooks/useDefaultCharges";
+import ItemPhotos from "../../components/ItemPhotos";
+import { formatDims } from "../../utils/formatDims";
 
 export default function IncomingRequests() {
   const defaults = useDefaultCharges();
@@ -70,11 +72,15 @@ export default function IncomingRequests() {
             {error && <Banner kind="error">{error}</Banner>}
             <div>
               <p className="field-label">Items</p>
-              <ul className="mt-2 space-y-1 text-sm text-ink">
+              <ul className="mt-2 space-y-2 text-sm text-ink">
                 {quoting.items.map((i) => (
                   <li key={i.id} className="flex justify-between">
-                    <span>{i.category_name} × {i.quantity}</span>
-                    <span className="font-mono text-inkfaint">{i.estimated_weight_kg} kg</span>
+                    <div>
+                      <span>{i.category_name} × {i.quantity}</span>
+                      {formatDims(i) && <p className="field-label mt-0.5">{formatDims(i)}</p>}
+                      <ItemPhotos urls={i.image_urls} size="h-10 w-10" />
+                    </div>
+                    <span className="shrink-0 font-mono text-inkfaint">{i.estimated_weight_kg} kg</span>
                   </li>
                 ))}
               </ul>

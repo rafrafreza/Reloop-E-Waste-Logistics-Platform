@@ -38,6 +38,10 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
             quantity=i.quantity,
             estimated_weight_kg=i.estimated_weight_kg,
             actual_weight_kg=i.actual_weight_kg,
+            length_cm=i.length_cm,
+            breadth_cm=i.breadth_cm,
+            height_cm=i.height_cm,
+            image_urls=[img.url for img in i.images],
         )
         for i in req.items
     ]

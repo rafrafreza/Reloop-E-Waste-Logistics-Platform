@@ -130,11 +130,19 @@ class CategoryOut(CategoryCreate):
 # ---------------------------------------------------------------------------
 
 
+class ImageUploadOut(BaseModel):
+    url: str
+
+
 class RequestItemCreate(BaseModel):
     category_id: int
     description: str | None = None
     quantity: int = 1
     estimated_weight_kg: float = 1.0
+    length_cm: float | None = None
+    breadth_cm: float | None = None
+    height_cm: float | None = None
+    image_urls: list[str] = []
 
 
 class RequestItemOut(BaseModel):
@@ -145,6 +153,10 @@ class RequestItemOut(BaseModel):
     quantity: int
     estimated_weight_kg: float
     actual_weight_kg: float | None
+    length_cm: float | None = None
+    breadth_cm: float | None = None
+    height_cm: float | None = None
+    image_urls: list[str] = []
 
     class Config:
         from_attributes = True

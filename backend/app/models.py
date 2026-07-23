@@ -134,9 +134,26 @@ class RequestItem(Base):
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     estimated_weight_kg: Mapped[float] = mapped_column(Float, default=1.0)
     actual_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Rough item dimensions (cm), used by pickup partners to judge vehicle
+    # size needed - optional since consumers may not always know them.
+    length_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    breadth_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     request: Mapped["CollectionRequest"] = relationship(back_populates="items")
     category: Mapped["Category"] = relationship()
+    images: Mapped[list["RequestItemImage"]] = relationship(back_populates="item", cascade="all, delete-orphan")
+
+
+class RequestItemImage(Base):
+    __tablename__ = "request_item_images"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_item_id: Mapped[int] = mapped_column(ForeignKey("request_items.id"), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+    item: Mapped["RequestItem"] = relationship(back_populates="images")
 
 
 class Quotation(Base):
