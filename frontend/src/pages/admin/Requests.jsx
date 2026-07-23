@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { adminApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import StatusBadge from "../../components/ui/StatusBadge";
+import PaginatedList from "../../components/PaginatedList";
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -40,35 +41,40 @@ export default function Requests() {
       <div className="mt-6">
         {!requests ? (
           <PageLoader />
-        ) : requests.length === 0 ? (
-          <EmptyState title="No requests found" />
         ) : (
-          <div className="overflow-x-auto rounded border border-ink/10 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 bg-paperdim">
-                  <th className="px-4 py-3 field-label">ID</th>
-                  <th className="px-4 py-3 field-label">Consumer</th>
-                  <th className="px-4 py-3 field-label">Centre</th>
-                  <th className="px-4 py-3 field-label">Status</th>
-                  <th className="px-4 py-3 field-label text-right">Amount</th>
-                  <th className="px-4 py-3 field-label">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((r) => (
-                  <tr key={r.id} className="border-b border-ink/5 last:border-0">
-                    <td className="px-4 py-3 font-mono text-xs text-inkfaint">#{String(r.id).padStart(5, "0")}</td>
-                    <td className="px-4 py-3 text-ink">{r.consumer_name}</td>
-                    <td className="px-4 py-3 text-inkfaint">{r.centre_name || "—"}</td>
-                    <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
-                    <td className="px-4 py-3 text-right font-mono text-ink">{r.quotation ? `₹${r.quotation.total_amount.toFixed(2)}` : "—"}</td>
-                    <td className="px-4 py-3 text-inkfaint">{formatDate(r.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PaginatedList
+            items={requests}
+            searchFields={['id', 'status', 'consumer_name', 'centre_name']}
+            renderItem={(r) => (
+              <tr key={r.id} className="border-b border-ink/5 last:border-0">
+                <td className="px-4 py-3 font-mono text-xs text-inkfaint">#{String(r.id).padStart(5, "0")}</td>
+                <td className="px-4 py-3 text-ink">{r.consumer_name}</td>
+                <td className="px-4 py-3 text-inkfaint">{r.centre_name || "—"}</td>
+                <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                <td className="px-4 py-3 text-right font-mono text-ink">{r.quotation ? `₹${r.quotation.total_amount.toFixed(2)}` : "—"}</td>
+                <td className="px-4 py-3 text-inkfaint">{formatDate(r.created_at)}</td>
+              </tr>
+            )}
+            renderWrapper={(children) => (
+              <div className="overflow-x-auto rounded border border-ink/10 bg-white">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-ink/10 bg-paperdim">
+                      <th className="px-4 py-3 field-label">ID</th>
+                      <th className="px-4 py-3 field-label">Consumer</th>
+                      <th className="px-4 py-3 field-label">Centre</th>
+                      <th className="px-4 py-3 field-label">Status</th>
+                      <th className="px-4 py-3 field-label text-right">Amount</th>
+                      <th className="px-4 py-3 field-label">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>{children}</tbody>
+                </table>
+              </div>
+            )}
+            emptyState={<EmptyState title="No requests found" />}
+            itemsPerPage={10}
+          />
         )}
       </div>
     </div>

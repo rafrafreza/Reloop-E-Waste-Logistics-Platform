@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
+import PaginatedList from "../../components/PaginatedList";
 
 const FILTERS = [
   { value: "", label: "All" },
@@ -51,13 +52,17 @@ export default function Requests() {
         ))}
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-6">
         {!requests ? (
           <PageLoader />
-        ) : requests.length === 0 ? (
-          <EmptyState title="No requests here" description="Try a different filter, or schedule your first pickup." action={<Link to="/consumer/new-request" className="btn-primary">Schedule a pickup</Link>} />
         ) : (
-          requests.map((r) => <RequestCard key={r.id} request={r} basePath="/consumer/requests" />)
+          <PaginatedList
+            items={requests}
+            searchFields={['id', 'status', r => r.address?.city, r => r.address?.street, r => r.items?.map(i => i.category_name).join(" ")]}
+            renderItem={(r) => <RequestCard key={r.id} request={r} basePath="/consumer/requests" />}
+            emptyState={<EmptyState title="No requests here" description="Try a different filter, or schedule your first pickup." action={<Link to="/consumer/new-request" className="btn-primary">Schedule a pickup</Link>} />}
+            itemsPerPage={4}
+          />
         )}
       </div>
     </div>

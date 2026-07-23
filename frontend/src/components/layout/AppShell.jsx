@@ -107,7 +107,7 @@ export default function AppShell() {
   return (
     <div className="flex min-h-screen bg-paper">
       {/* Desktop sidebar - unchanged, hidden below md */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-ink/10 bg-white md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink/10 bg-white md:flex">
         <div className="flex items-center gap-2 border-b border-ink/10 px-5 py-4">
           <BrandMark />
           <span className="font-semibold text-ink">Reloop</span>
