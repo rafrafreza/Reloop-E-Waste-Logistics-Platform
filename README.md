@@ -54,7 +54,7 @@ platform settings, and cross-platform oversight).
 ewaste/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # FastAPI app, CORS, router registration
+│   │   ├── main.py          # FastAPI app, CORS, static /uploads mount
 │   │   ├── database.py      # SQLAlchemy engine/session
 │   │   ├── models.py        # All ORM models
 │   │   ├── schemas.py       # Pydantic request/response schemas
@@ -62,22 +62,26 @@ ewaste/
 │   │   ├── utils.py         # OTP generation, notifications, serialization
 │   │   ├── seed.py          # Creates tables + demo data on first run
 │   │   └── routers/
-│   │       ├── auth.py      # register/login/me
+│   │       ├── auth.py      # register/login/me/profile/change-password
 │   │       ├── common.py    # categories, notifications, public settings
 │   │       ├── consumer.py  # addresses, requests, quote accept/reject
 │   │       ├── centre.py    # quoting, partner assignment, inventory
 │   │       ├── partner.py   # pickup workflow (start/OTP/deliver)
-│   │       └── admin.py     # users, categories, settings, oversight
+│   │       ├── admin.py     # users, categories, settings, oversight
+│   │       └── uploads.py   # item photo upload (saved to ./uploads)
+│   ├── uploads/              # item photos (created at runtime, gitignored)
 │   └── requirements.txt
 └── frontend/
     ├── src/
     │   ├── api/              # axios client + endpoint functions
     │   ├── context/          # AuthContext (session state)
-    │   ├── components/       # layout, RequestCard, Timeline, UI kit
+    │   ├── hooks/             # useServiceCities, useDefaultCharges
+    │   ├── components/       # layout (incl. mobile bottom nav), UI kit
     │   ├── constants/        # status labels/colors
     │   └── pages/
     │       ├── public/       # marketing site (home, pricing, FAQ, etc.)
     │       ├── auth/         # login, register
+    │       ├── Profile.jsx   # shared profile page for every role
     │       ├── consumer/     # dashboard, addresses, new request, requests
     │       ├── partner/      # dashboard, assignments, pickup workflow
     │       ├── centre/       # dashboard, incoming, active, inventory
@@ -158,6 +162,11 @@ rm backend/ewaste.db
 
 It will be recreated and reseeded the next time you start the backend.
 
+Since this project has no migration tool (by design, to keep it simple),
+**pulling updated code that changes `models.py` always requires deleting
+`ewaste.db` and letting it reseed** - otherwise the old SQLite file won't
+have the new columns/tables and you'll see database errors.
+
 ---
 
 ## 7. Design notes
@@ -190,8 +199,17 @@ It will be recreated and reseeded the next time you start the backend.
   `default_handling_charge` / `default_pickup_charge` pre-fill the centre's
   quotation form. Update them from **Admin → Settings** and they apply
   immediately (no restart needed).
+- **Item dimensions & photos**: each item in a request can optionally record
+  L×B×H (cm) and multiple photos, uploaded to `backend/uploads/items/` and
+  served statically at `/uploads/...`. This is shown to the pickup partner
+  on the request detail page so they can judge what vehicle a job needs.
+- **Mobile navigation**: the four role dashboards (Consumer, Partner,
+  Centre, Admin) use a fixed sidebar on desktop and a bottom bar with a
+  hamburger menu on mobile (`md:` breakpoint and below) — tap **Menu** to
+  open the full navigation drawer. The public marketing site keeps its own
+  top navbar/hamburger, which is a separate, unrelated layout.
 
-## 9. Possible next versions
+## 8. Possible next versions
 
 The codebase intentionally leaves room to grow without a rewrite:
 

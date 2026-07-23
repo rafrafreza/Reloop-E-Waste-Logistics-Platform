@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_role
 from app.database import get_db
-from app.models import Address, Category, CollectionRequest, RequestItem, User
+from app.models import Address, Category, CollectionRequest, RequestItem, RequestItemImage, User
 from app.schemas import AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut
 from app.utils import log_status, to_request_out
 
@@ -17,6 +17,7 @@ def _request_query(db: Session):
         joinedload(CollectionRequest.address),
         joinedload(CollectionRequest.centre),
         joinedload(CollectionRequest.items).joinedload(RequestItem.category),
+        joinedload(CollectionRequest.items).joinedload(RequestItem.images),
         joinedload(CollectionRequest.quotation),
         joinedload(CollectionRequest.assignment),
         joinedload(CollectionRequest.history),
@@ -107,13 +108,20 @@ def create_request(payload: CollectionRequestCreate, db: Session = Depends(get_d
     db.flush()
 
     for item in payload.items:
-        db.add(RequestItem(
+        request_item = RequestItem(
             request_id=req.id,
             category_id=item.category_id,
             description=item.description,
             quantity=item.quantity,
             estimated_weight_kg=item.estimated_weight_kg,
-        ))
+            length_cm=item.length_cm,
+            breadth_cm=item.breadth_cm,
+            height_cm=item.height_cm,
+        )
+        db.add(request_item)
+        db.flush()
+        for url in item.image_urls:
+            db.add(RequestItemImage(request_item_id=request_item.id, url=url))
 
     log_status(db, req.id, "PENDING", "Request created by consumer")
     db.commit()

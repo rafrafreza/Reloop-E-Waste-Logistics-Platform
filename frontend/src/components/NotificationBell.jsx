@@ -9,7 +9,7 @@ function timeAgo(iso) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ openUpward = false }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [count, setCount] = useState(0);
@@ -70,7 +70,11 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 animate-rise rounded border border-ink/10 bg-white shadow-stamp">
+        <div
+          className={`absolute right-0 z-40 w-80 max-w-[88vw] animate-rise rounded border border-ink/10 bg-white shadow-stamp ${
+            openUpward ? "bottom-full mb-2" : "mt-2"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
             <p className="text-sm font-semibold text-ink">Notifications</p>
             {notifications.some((n) => !n.is_read) && (
