@@ -6,8 +6,7 @@ the physical handover, and an **admin** runs the whole operation — with
 ratings, payouts, revenue analytics, environmental impact tracking, and
 support ticketing on top of the core pickup pipeline.
 
-Built with **React (Vite) + FastAPI + SQLite/SQLAlchemy**. No Docker, Redis,
-or Celery — everything runs locally with two commands.
+Built with **React (Vite) + FastAPI + SQLite/SQLAlchemy**.
 
 ---
 
