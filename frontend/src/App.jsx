@@ -7,6 +7,7 @@ import AppShell from "./components/layout/AppShell";
 import Home from "./pages/public/Home";
 import HowItWorks from "./pages/public/HowItWorks";
 import Pricing from "./pages/public/Pricing";
+import PublicImpact from "./pages/public/Impact";
 import FAQ from "./pages/public/FAQ";
 import Contact from "./pages/public/Contact";
 import Privacy from "./pages/public/Privacy";
@@ -15,17 +16,21 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import Support from "./pages/Support";
 
 import ConsumerDashboard from "./pages/consumer/Dashboard";
 import ConsumerAddresses from "./pages/consumer/Addresses";
 import ConsumerNewRequest from "./pages/consumer/NewRequest";
 import ConsumerRequests from "./pages/consumer/Requests";
 import ConsumerRequestDetail from "./pages/consumer/RequestDetail";
+import ConsumerImpact from "./pages/consumer/Impact";
+import ConsumerCertificate from "./pages/consumer/Certificate";
 
 import PartnerDashboard from "./pages/partner/Dashboard";
 import PartnerAssignments from "./pages/partner/Assignments";
 import PartnerRequestDetail from "./pages/partner/RequestDetail";
 import PartnerHistory from "./pages/partner/History";
+import PartnerEarnings from "./pages/partner/Earnings";
 
 import CentreDashboard from "./pages/centre/Dashboard";
 import CentreIncoming from "./pages/centre/IncomingRequests";
@@ -39,6 +44,9 @@ import AdminUsers from "./pages/admin/Users";
 import AdminCategories from "./pages/admin/Categories";
 import AdminSettings from "./pages/admin/Settings";
 import AdminRequests from "./pages/admin/Requests";
+import AdminRevenue from "./pages/admin/Revenue";
+import AdminAuditLog from "./pages/admin/AuditLog";
+import AdminSupport from "./pages/admin/AdminSupport";
 
 export default function App() {
   return (
@@ -50,6 +58,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/impact" element={<PublicImpact />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />
@@ -72,6 +81,9 @@ export default function App() {
             <Route path="new-request" element={<ConsumerNewRequest />} />
             <Route path="requests" element={<ConsumerRequests />} />
             <Route path="requests/:id" element={<ConsumerRequestDetail />} />
+            <Route path="requests/:id/certificate" element={<ConsumerCertificate />} />
+            <Route path="impact" element={<ConsumerImpact />} />
+            <Route path="support" element={<Support />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
@@ -88,6 +100,8 @@ export default function App() {
             <Route path="assignments" element={<PartnerAssignments />} />
             <Route path="requests/:id" element={<PartnerRequestDetail />} />
             <Route path="history" element={<PartnerHistory />} />
+            <Route path="earnings" element={<PartnerEarnings />} />
+            <Route path="support" element={<Support />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
@@ -106,6 +120,7 @@ export default function App() {
             <Route path="inventory" element={<CentreInventory />} />
             <Route path="history" element={<CentreHistory />} />
             <Route path="requests/:id" element={<CentreRequestDetail />} />
+            <Route path="support" element={<Support />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
@@ -123,6 +138,9 @@ export default function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="revenue" element={<AdminRevenue />} />
+            <Route path="audit-log" element={<AdminAuditLog />} />
+            <Route path="support" element={<AdminSupport />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 

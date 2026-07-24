@@ -3,12 +3,13 @@ import random
 
 from sqlalchemy.orm import Session
 
-from app.models import CollectionRequest, Notification, StatusHistory
+from app.models import AuditLog, CollectionRequest, Notification, Setting, StatusHistory
 from app.schemas import (
     AddressBrief,
     AssignmentOut,
     CollectionRequestOut,
     QuotationOut,
+    RatingOut,
     RequestItemOut,
     StatusHistoryOut,
 )
@@ -24,6 +25,21 @@ def notify(db: Session, user_id: int, title: str, message: str, link: str | None
 
 def log_status(db: Session, request_id: int, status: str, remarks: str | None = None) -> None:
     db.add(StatusHistory(request_id=request_id, status=status, remarks=remarks))
+
+
+def log_audit(db: Session, actor_id: int | None, action: str, details: str | None = None) -> None:
+    db.add(AuditLog(actor_id=actor_id, action=action, details=details))
+
+
+def get_setting_float(db: Session, key: str, default: float) -> float:
+    """Reads a numeric setting value, falling back safely if missing/unparseable."""
+    row = db.query(Setting).filter(Setting.key == key).first()
+    if not row:
+        return default
+    try:
+        return float(row.value)
+    except (TypeError, ValueError):
+        return default
 
 
 def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
@@ -55,9 +71,12 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
             partner_name=req.assignment.partner.full_name if req.assignment.partner else None,
             partner_phone=req.assignment.partner.phone if req.assignment.partner else None,
             assigned_at=req.assignment.assigned_at,
+            payout_amount=req.assignment.payout_amount,
+            payout_status=req.assignment.payout_status,
         )
 
     history = [StatusHistoryOut.model_validate(h) for h in req.history]
+    rating = RatingOut.model_validate(req.rating) if req.rating else None
 
     return CollectionRequestOut(
         id=req.id,
@@ -77,4 +96,5 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
         quotation=quotation,
         assignment=assignment,
         history=history,
+        rating=rating,
     )

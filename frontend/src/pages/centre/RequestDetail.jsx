@@ -153,6 +153,9 @@ export default function CentreRequestDetail() {
                     <div>
                       <p className="text-sm font-medium text-ink">{p.full_name}</p>
                       <p className="text-xs text-inkfaint">{p.vehicle_number || "No vehicle on file"}</p>
+                      {p.rating_count > 0 && (
+                        <p className="text-xs text-amber">{"★".repeat(Math.round(p.avg_rating))}<span className="text-ink/15">{"★".repeat(5 - Math.round(p.avg_rating))}</span> <span className="text-inkfaint">({p.rating_count})</span></p>
+                      )}
                     </div>
                     <input type="radio" checked={selectedPartner === String(p.user_id)} onChange={() => setSelectedPartner(String(p.user_id))} />
                   </label>

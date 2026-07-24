@@ -101,6 +101,37 @@ export default function Profile() {
         {ROLE_LABEL[profile.role]} · {profile.email}
       </p>
 
+      <div className="ticket mt-6 grid grid-cols-2 gap-4 p-6 sm:grid-cols-3">
+        <div>
+          <p className="field-label">Reward points</p>
+          <p className="mt-1 font-mono text-xl font-semibold text-copper">{profile.reward_points}</p>
+        </div>
+        <div>
+          <p className="field-label">Referral code</p>
+          <p className="mt-1 font-mono text-lg tracking-wide text-ink">{profile.referral_code}</p>
+        </div>
+        <div>
+          <p className="field-label">Referrals made</p>
+          <p className="mt-1 font-mono text-xl font-semibold text-ink">{profile.referral_count}</p>
+        </div>
+        {(isPartner || isCentre) && profile.rating_count > 0 && (
+          <div>
+            <p className="field-label">Rating</p>
+            <p className="mt-1 text-sm">
+              <span className="text-amber">{"★".repeat(Math.round(profile.avg_rating))}</span>
+              <span className="text-ink/15">{"★".repeat(5 - Math.round(profile.avg_rating))}</span>
+              <span className="ml-1 text-inkfaint">({profile.rating_count})</span>
+            </p>
+          </div>
+        )}
+        {isPartner && (
+          <div>
+            <p className="field-label">Total earnings</p>
+            <p className="mt-1 font-mono text-xl font-semibold text-circuit">₹{(profile.total_earnings || 0).toFixed(0)}</p>
+          </div>
+        )}
+      </div>
+
       <form onSubmit={handleSubmit} className="ticket mt-6 space-y-4 p-6">
         <p className="field-label">Account details</p>
         {error && <Banner kind="error">{error}</Banner>}

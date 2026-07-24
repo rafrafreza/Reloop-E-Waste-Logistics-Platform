@@ -9,12 +9,16 @@ const NAV_ITEMS = {
     { to: "/consumer/requests", label: "My Requests", icon: "list" },
     { to: "/consumer/new-request", label: "Schedule Pickup", icon: "plus" },
     { to: "/consumer/addresses", label: "Addresses", icon: "pin" },
+    { to: "/consumer/impact", label: "My Impact", icon: "leaf" },
+    { to: "/consumer/support", label: "Support", icon: "help" },
     { to: "/consumer/profile", label: "Profile", icon: "user" },
   ],
   PARTNER: [
     { to: "/partner", label: "Dashboard", icon: "grid", end: true },
     { to: "/partner/assignments", label: "Assignments", icon: "truck" },
+    { to: "/partner/earnings", label: "Earnings", icon: "money" },
     { to: "/partner/history", label: "History", icon: "list" },
+    { to: "/partner/support", label: "Support", icon: "help" },
     { to: "/partner/profile", label: "Profile", icon: "user" },
   ],
   CENTRE: [
@@ -23,6 +27,7 @@ const NAV_ITEMS = {
     { to: "/centre/active", label: "Active Pipeline", icon: "truck" },
     { to: "/centre/inventory", label: "Warehouse", icon: "box" },
     { to: "/centre/history", label: "History", icon: "list" },
+    { to: "/centre/support", label: "Support", icon: "help" },
     { to: "/centre/profile", label: "Profile", icon: "user" },
   ],
   ADMIN: [
@@ -31,6 +36,9 @@ const NAV_ITEMS = {
     { to: "/admin/users", label: "Users", icon: "users" },
     { to: "/admin/categories", label: "Categories & Pricing", icon: "tag" },
     { to: "/admin/settings", label: "Settings", icon: "settings" },
+    { to: "/admin/revenue", label: "Revenue", icon: "trending" },
+    { to: "/admin/audit-log", label: "Audit Log", icon: "clipboard" },
+    { to: "/admin/support", label: "Support Inbox", icon: "help" },
     { to: "/admin/profile", label: "Profile", icon: "user" },
   ],
 };
@@ -54,6 +62,11 @@ const ICONS = {
   settings: "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.39.68.71.92",
   menu: "M4 7h16M4 12h16M4 17h16",
   close: "M6 6l12 12M18 6L6 18",
+  leaf: "M20 4C10 4 4 10 4 20c8 0 14-6 14-16z M4 20l8-8",
+  money: "M12 2v20 M16.5 6.5C16.5 4.84 14.5 4 12 4S7.5 4.84 7.5 6.5 9.5 9 12 9s4.5 1.34 4.5 3-2 3-4.5 3-4.5-.84-4.5-2.5",
+  trending: "M3 17l6-6 4 4 8-8 M15 7h6v6",
+  clipboard: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 4.5A1.5 1.5 0 0110.5 3h3A1.5 1.5 0 0115 4.5v1A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5z M9 12h6 M9 16h6",
+  help: "M12 22a10 10 0 100-20 10 10 0 000 20z M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 3.5 M12 17h.01",
 };
 
 function Icon({ name, className = "" }) {

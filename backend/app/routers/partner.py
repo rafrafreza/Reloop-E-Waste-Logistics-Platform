@@ -11,7 +11,7 @@ from app.models import (
     RequestItem,
     User,
 )
-from app.schemas import CollectionRequestOut, DashboardStats, OtpVerifyRequest
+from app.schemas import CollectionRequestOut, DashboardStats, OtpVerifyRequest, PartnerEarningsOut
 from app.utils import log_status, notify, to_request_out
 
 router = APIRouter(prefix="/api/partner", tags=["partner"])
@@ -31,6 +31,7 @@ def _request_query(db: Session):
         joinedload(CollectionRequest.quotation),
         joinedload(CollectionRequest.assignment).joinedload(Assignment.partner),
         joinedload(CollectionRequest.history),
+        joinedload(CollectionRequest.rating),
     )
 
 
@@ -149,4 +150,44 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_partne
         total_users=0, total_consumers=0, total_partners=0, total_centres=0,
         total_requests=total, pending_requests=0, active_requests=active,
         completed_requests=completed, total_weight_kg=round(total_weight, 2), total_revenue=0,
+    )
+
+
+@router.patch("/availability")
+def set_availability(available: bool, db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
+    if not profile:
+        raise HTTPException(status_code=400, detail="No partner profile associated with this account")
+    if profile.status == "BUSY":
+        raise HTTPException(status_code=400, detail="You can't change availability while on an active job")
+    profile.status = "AVAILABLE" if available else "OFFLINE"
+    db.commit()
+    return {"status": profile.status}
+
+
+@router.get("/earnings", response_model=PartnerEarningsOut)
+def earnings(db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
+    if not profile:
+        raise HTTPException(status_code=400, detail="No partner profile associated with this account")
+
+    pending_assignments = (
+        db.query(Assignment)
+        .filter(Assignment.partner_id == user.id, Assignment.payout_status == "PENDING")
+        .all()
+    )
+    pending_total = sum(a.payout_amount for a in pending_assignments)
+    completed_jobs = (
+        db.query(Assignment)
+        .filter(Assignment.partner_id == user.id, Assignment.payout_status == "PAID")
+        .count()
+    )
+
+    return PartnerEarningsOut(
+        total_earnings=round(profile.total_earnings + pending_total, 2),
+        paid_earnings=round(profile.total_earnings, 2),
+        pending_earnings=round(pending_total, 2),
+        completed_jobs=completed_jobs,
+        avg_rating=profile.avg_rating,
+        rating_count=profile.rating_count,
     )

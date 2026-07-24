@@ -30,8 +30,12 @@ export default function Dashboard() {
         <StatTile label="Active requests" value={active.length} accent="text-amber" />
         <StatTile label="Completed" value={completed.length} accent="text-circuit" />
         <StatTile label="Total payout" value={`₹${totalPayout.toFixed(0)}`} accent="text-ink" />
-        <StatTile label="All-time requests" value={requests.length} accent="text-ink" />
+        <StatTile label="Reward points" value={user.reward_points} accent="text-copper" />
       </div>
+
+      <Link to="/consumer/impact" className="mt-3 inline-block text-sm text-circuit hover:underline">
+        View my environmental impact →
+      </Link>
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="font-medium text-ink">Active requests</h2>

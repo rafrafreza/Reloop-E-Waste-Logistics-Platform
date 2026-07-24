@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -16,13 +18,16 @@ from app.models import (
 )
 from app.schemas import (
     AssignPartnerRequest,
+    CapacityStats,
     CollectionRequestOut,
     DashboardStats,
+    InventoryDispatchRequest,
     InventoryItemOut,
+    InventoryRecycleRequest,
     PartnerOut,
     QuotationCreate,
 )
-from app.utils import log_status, notify, to_request_out
+from app.utils import get_setting_float, log_status, notify, to_request_out
 
 router = APIRouter(prefix="/api/centre", tags=["centre"])
 require_centre = require_role("CENTRE")
@@ -38,6 +43,7 @@ def _request_query(db: Session):
         joinedload(CollectionRequest.quotation),
         joinedload(CollectionRequest.assignment).joinedload(Assignment.partner),
         joinedload(CollectionRequest.history),
+        joinedload(CollectionRequest.rating),
     )
 
 
@@ -100,12 +106,16 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
     )
     total = material_value - payload.handling_charge - payload.pickup_charge
 
+    fee_percent = get_setting_float(db, "platform_fee_percent", 5.0)
+    commission = material_value * fee_percent / 100
+
     quotation = Quotation(
         request_id=req.id,
         material_value=round(material_value, 2),
         handling_charge=round(payload.handling_charge, 2),
         pickup_charge=round(payload.pickup_charge, 2),
         total_amount=round(total, 2),
+        platform_commission=round(commission, 2),
         status="PENDING",
     )
     db.add(quotation)
@@ -134,6 +144,7 @@ def list_partners(db: Session = Depends(get_db), user: User = Depends(require_ce
         out.append(PartnerOut(
             id=p.id, user_id=p.user_id, full_name=p.user.full_name, phone=p.user.phone,
             vehicle_number=p.vehicle_number, city=p.city, status=p.status,
+            avg_rating=p.avg_rating, rating_count=p.rating_count,
         ))
     return out
 
@@ -151,17 +162,21 @@ def assign_partner(request_id: int, payload: AssignPartnerRequest, db: Session =
     partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == partner_user_id).first()
     if not partner_profile or partner_profile.city != centre.city:
         raise HTTPException(status_code=400, detail="Invalid partner for this centre's city")
+    if partner_profile.status != "AVAILABLE":
+        raise HTTPException(status_code=400, detail="This partner is not currently available")
 
     from app.utils import generate_otp
 
     otp = generate_otp()
-    db.add(Assignment(request_id=req.id, partner_id=partner_user_id))
+    payout = get_setting_float(db, "partner_pickup_fee", 40.0)
+    db.add(Assignment(request_id=req.id, partner_id=partner_user_id, payout_amount=round(payout, 2)))
     req.status = "ASSIGNED"
     req.pickup_otp = otp
     partner_profile.status = "BUSY"
-    log_status(db, req.id, "ASSIGNED", f"Assigned to pickup partner")
+    log_status(db, req.id, "ASSIGNED", "Assigned to pickup partner")
     notify(db, partner_user_id, "New pickup assignment",
-           f"You have been assigned to pickup request #{req.id}.", link=f"/partner/requests/{req.id}")
+           f"You have been assigned to pickup request #{req.id}. You'll earn Rs.{payout:.2f} for this job.",
+           link=f"/partner/requests/{req.id}")
     notify(db, req.consumer_id, "Pickup partner assigned",
            f"A pickup partner has been assigned to request #{req.id}. Your handover OTP is {otp}.",
            link=f"/consumer/requests/{req.id}")
@@ -183,33 +198,99 @@ def complete_request(request_id: int, db: Session = Depends(get_db), user: User 
     log_status(db, req.id, "COMPLETED", "Processing complete, payout settled")
     notify(db, req.consumer_id, "Request completed",
            f"Request #{req.id} is complete. Thank you for recycling responsibly!")
+
+    # Reward the consumer with a small points bonus for completing a pickup.
+    if req.consumer:
+        req.consumer.reward_points += 10
+
     if req.assignment:
         partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == req.assignment.partner_id).first()
         if partner_profile:
             partner_profile.status = "AVAILABLE"
+            partner_profile.total_earnings += req.assignment.payout_amount
+        req.assignment.payout_status = "PAID"
+        notify(db, req.assignment.partner_id, "Payout settled",
+               f"Rs.{req.assignment.payout_amount:.2f} for request #{req.id} has been added to your earnings.")
 
     db.commit()
     return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
 
 
+def _inventory_out(i: InventoryItem) -> InventoryItemOut:
+    return InventoryItemOut(
+        id=i.id, request_id=i.request_id, category_id=i.category_id,
+        category_name=i.category.name if i.category else None,
+        weight_kg=i.weight_kg, status=i.status, received_at=i.received_at,
+        dispatched_to=i.dispatched_to, dispatched_at=i.dispatched_at, recycled_at=i.recycled_at,
+    )
+
+
 @router.get("/inventory", response_model=list[InventoryItemOut])
-def list_inventory(db: Session = Depends(get_db), user: User = Depends(require_centre)):
+def list_inventory(status: str | None = None, db: Session = Depends(get_db), user: User = Depends(require_centre)):
     centre = _get_my_centre(db, user)
-    items = (
+    q = (
         db.query(InventoryItem)
         .options(joinedload(InventoryItem.category))
         .filter(InventoryItem.centre_id == centre.id)
-        .order_by(InventoryItem.received_at.desc())
+    )
+    if status:
+        q = q.filter(InventoryItem.status == status.upper())
+    items = q.order_by(InventoryItem.received_at.desc()).all()
+    return [_inventory_out(i) for i in items]
+
+
+@router.post("/inventory/dispatch", response_model=list[InventoryItemOut])
+def dispatch_inventory(payload: InventoryDispatchRequest, db: Session = Depends(get_db), user: User = Depends(require_centre)):
+    centre = _get_my_centre(db, user)
+    items = (
+        db.query(InventoryItem)
+        .filter(InventoryItem.id.in_(payload.item_ids), InventoryItem.centre_id == centre.id)
         .all()
     )
-    return [
-        InventoryItemOut(
-            id=i.id, request_id=i.request_id, category_id=i.category_id,
-            category_name=i.category.name if i.category else None,
-            weight_kg=i.weight_kg, status=i.status, received_at=i.received_at,
-        )
-        for i in items
-    ]
+    if not items:
+        raise HTTPException(status_code=404, detail="No matching inventory items found")
+    now = datetime.utcnow()
+    for item in items:
+        if item.status != "IN_STORAGE":
+            raise HTTPException(status_code=400, detail=f"Item #{item.id} is not in storage")
+        item.status = "DISPATCHED"
+        item.dispatched_to = payload.recycler_name
+        item.dispatched_at = now
+    db.commit()
+    return [_inventory_out(i) for i in items]
+
+
+@router.post("/inventory/recycle", response_model=list[InventoryItemOut])
+def recycle_inventory(payload: InventoryRecycleRequest, db: Session = Depends(get_db), user: User = Depends(require_centre)):
+    centre = _get_my_centre(db, user)
+    items = (
+        db.query(InventoryItem)
+        .filter(InventoryItem.id.in_(payload.item_ids), InventoryItem.centre_id == centre.id)
+        .all()
+    )
+    if not items:
+        raise HTTPException(status_code=404, detail="No matching inventory items found")
+    now = datetime.utcnow()
+    for item in items:
+        if item.status != "DISPATCHED":
+            raise HTTPException(status_code=400, detail=f"Item #{item.id} must be dispatched before it can be marked recycled")
+        item.status = "RECYCLED"
+        item.recycled_at = now
+    db.commit()
+    return [_inventory_out(i) for i in items]
+
+
+@router.get("/capacity", response_model=CapacityStats)
+def capacity(db: Session = Depends(get_db), user: User = Depends(require_centre)):
+    centre = _get_my_centre(db, user)
+    used = (
+        db.query(InventoryItem)
+        .filter(InventoryItem.centre_id == centre.id, InventoryItem.status == "IN_STORAGE")
+        .all()
+    )
+    used_kg = sum(i.weight_kg for i in used)
+    percent = (used_kg / centre.capacity_kg * 100) if centre.capacity_kg else 0
+    return CapacityStats(capacity_kg=centre.capacity_kg, used_kg=round(used_kg, 2), percent_used=round(percent, 1))
 
 
 @router.get("/dashboard", response_model=DashboardStats)
@@ -232,11 +313,10 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_centre
         for r in base.filter(CollectionRequest.status == "COMPLETED").all() if r.quotation
     )
 
-    from app.models import PartnerProfile as PP
     return DashboardStats(
         total_users=0,
         total_consumers=0,
-        total_partners=db.query(PP).filter(PP.city == centre.city).count(),
+        total_partners=db.query(PartnerProfile).filter(PartnerProfile.city == centre.city).count(),
         total_centres=0,
         total_requests=total,
         pending_requests=pending_count,
