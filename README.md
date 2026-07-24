@@ -51,7 +51,7 @@ inbox, and cross-platform oversight).
 | Layer     | Tech                                                         |
 |-----------|---------------------------------------------------------------|
 | Frontend  | React 19 (Vite), React Router, Tailwind CSS, Axios, Recharts (analytics charts) |
-| Backend   | FastAPI, SQLAlchemy ORM, Pydantic v2, python-jose (JWT), passlib (bcrypt) |
+| Backend   | FastAPI, SQLAlchemy ORM, Pydantic v2, python-jose (JWT), passlib (bcrypt), LangChain, Google Generative AI |
 | Database  | SQLite (file-based, zero setup)                                |
 | Auth      | JWT bearer tokens, role-gated endpoints (Consumer/Partner/Centre/Admin) |
 
@@ -115,6 +115,10 @@ source venv/bin/activate        # macOS / Linux
 venv\Scripts\activate           # Windows
 
 pip install -r requirements.txt
+
+# Export your Gemini API Key before running the server
+export GOOGLE_API_KEY="your_actual_api_key_here"
+
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -258,11 +262,14 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   served statically at `/uploads/...`. This is shown to the pickup partner
   on the request detail page so they can judge what vehicle a job needs.
 - **Mobile navigation**: the four role dashboards (Consumer, Partner,
-  Centre, Admin) use a fixed sidebar on desktop and a bottom bar on mobile
-  (`md:` breakpoint and below) showing up to 5 direct nav buttons; roles
-  with more than 5 destinations get a **Menu** button as the 5th slot,
-  opening a sheet with the rest. The public marketing site keeps its own,
-  separate top navbar/hamburger.
+- **Mobile navigation**: the four role dashboards (Consumer, Partner,
+  Centre, Admin) use a fixed sidebar on desktop and a bottom bar with a
+  hamburger menu on mobile (`md:` breakpoint and below) — tap **Menu** to
+  open the full navigation drawer. The public marketing site keeps its own
+  top navbar/hamburger, which is a separate, unrelated layout.
+- **AI Assistant**: A custom AI Chatbot powered by `langchain-google-genai` uses a custom `knowledge_base.md` system prompt to help users with e-waste queries. The chat interface is implemented as a sliding `AIChatDrawer.jsx` component.
+- **Search & Pagination**: All heavy data tables (e.g., Active Requests, Users, Assignments) utilize a reusable `PaginatedList.jsx` component for scalable browsing and live search filtering.
+- **UI Aesthetics**: The application features a sticky header with a premium glassmorphism (backdrop blur) effect.
 - **Revenue model is additive, not destructive**: platform commission and
   partner payouts are tracked in new fields alongside the existing
   material-value/handling/pickup math — the original consumer payout

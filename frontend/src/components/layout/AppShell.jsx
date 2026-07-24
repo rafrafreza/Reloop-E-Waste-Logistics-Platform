@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import NotificationBell from "../NotificationBell";
+import AIChatDrawer from "../AIChatDrawer";
 
 const NAV_ITEMS = {
   CONSUMER: [
@@ -104,6 +105,7 @@ export default function AppShell() {
   const location = useLocation();
   const items = NAV_ITEMS[user.role] || [];
   const [menuOpen, setMenuOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const hasOverflow = items.length > MAX_BOTTOM_BUTTONS;
   const primaryItems = hasOverflow ? items.slice(0, MAX_BOTTOM_BUTTONS - 1) : items;
@@ -159,13 +161,24 @@ export default function AppShell() {
       <div className="flex min-h-screen flex-1 flex-col">
         {/* Top header: brand top-left on mobile, role label top-left on
             desktop, notification bell always top-right. */}
-        <header className="flex items-center justify-between border-b border-ink/10 bg-white px-4 py-3 md:px-8">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-ink/10 bg-white/90 backdrop-blur-md px-4 py-3 md:px-8">
           <div className="flex items-center gap-2 md:hidden">
             <BrandMark small />
             <span className="text-sm font-semibold text-ink">Reloop</span>
           </div>
           <p className="hidden field-label md:block">{ROLE_LABEL[user.role]}</p>
-          <NotificationBell />
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setChatOpen(true)}
+              className="flex items-center gap-2 rounded-full bg-circuitlight/40 px-3 py-1.5 text-sm font-medium text-circuit hover:bg-circuitlight transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="hidden md:inline">AI Chat</span>
+            </button>
+            <NotificationBell />
+          </div>
         </header>
 
         <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:py-8">
@@ -253,6 +266,8 @@ export default function AppShell() {
           </div>
         </div>
       )}
+
+      <AIChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }
