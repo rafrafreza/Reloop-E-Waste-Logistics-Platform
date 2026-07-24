@@ -42,7 +42,7 @@ platform settings, and cross-platform oversight).
 | Layer     | Tech                                                         |
 |-----------|---------------------------------------------------------------|
 | Frontend  | React 19 (Vite), React Router, Tailwind CSS, Axios            |
-| Backend   | FastAPI, SQLAlchemy ORM, Pydantic v2, python-jose (JWT), passlib (bcrypt) |
+| Backend   | FastAPI, SQLAlchemy ORM, Pydantic v2, python-jose (JWT), passlib (bcrypt), LangChain, Google Generative AI |
 | Database  | SQLite (file-based, zero setup)                                |
 | Auth      | JWT bearer tokens, role-gated endpoints (Consumer/Partner/Centre/Admin) |
 
@@ -106,6 +106,10 @@ source venv/bin/activate        # macOS / Linux
 venv\Scripts\activate           # Windows
 
 pip install -r requirements.txt
+
+# Export your Gemini API Key before running the server
+export GOOGLE_API_KEY="your_actual_api_key_here"
+
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -208,6 +212,9 @@ have the new columns/tables and you'll see database errors.
   hamburger menu on mobile (`md:` breakpoint and below) — tap **Menu** to
   open the full navigation drawer. The public marketing site keeps its own
   top navbar/hamburger, which is a separate, unrelated layout.
+- **AI Assistant**: A custom AI Chatbot powered by `langchain-google-genai` uses a custom `knowledge_base.md` system prompt to help users with e-waste queries. The chat interface is implemented as a sliding `AIChatDrawer.jsx` component.
+- **Search & Pagination**: All heavy data tables (e.g., Active Requests, Users, Assignments) utilize a reusable `PaginatedList.jsx` component for scalable browsing and live search filtering.
+- **UI Aesthetics**: The application features a sticky header with a premium glassmorphism (backdrop blur) effect.
 
 ## 8. Possible next versions
 
