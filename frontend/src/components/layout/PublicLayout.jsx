@@ -6,6 +6,7 @@ import { ROLE_HOME } from "../../context/AuthContext";
 const LINKS = [
   { to: "/how-it-works", label: "How it works" },
   { to: "/pricing", label: "Pricing" },
+  { to: "/impact", label: "Our Impact" },
   { to: "/faq", label: "FAQ" },
   { to: "/contact", label: "Contact" },
 ];

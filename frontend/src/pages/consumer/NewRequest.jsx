@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { consumerApi, commonApi, uploadApi } from "../../api/endpoints";
 import { apiErrorMessage, API_BASE } from "../../api/client";
 import { PageLoader, Banner, Spinner } from "../../components/ui/Primitives";
@@ -22,6 +22,7 @@ function emptyItem(categoryId) {
 
 export default function NewRequest() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [step, setStep] = useState(0);
   const [addresses, setAddresses] = useState(null);
   const [categories, setCategories] = useState(null);
@@ -33,14 +34,28 @@ export default function NewRequest() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingKey, setUploadingKey] = useState(null);
 
+  const prefillItems = location.state?.prefillItems;
+
   useEffect(() => {
     Promise.all([consumerApi.listAddresses(), commonApi.categories()]).then(([addrRes, catRes]) => {
       setAddresses(addrRes.data);
       setCategories(catRes.data);
       const def = addrRes.data.find((a) => a.is_default) || addrRes.data[0];
       if (def) setAddressId(def.id);
-      if (catRes.data.length) setItems([emptyItem(catRes.data[0].id)]);
+
+      if (prefillItems && prefillItems.length) {
+        setItems(
+          prefillItems.map((i) => ({
+            key: Math.random().toString(36).slice(2),
+            images: [],
+            ...i,
+          }))
+        );
+      } else if (catRes.data.length) {
+        setItems([emptyItem(catRes.data[0].id)]);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!addresses || !categories) return <PageLoader />;
@@ -110,6 +125,9 @@ export default function NewRequest() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-xl font-semibold text-ink">Schedule a pickup</h1>
+      {prefillItems && prefillItems.length > 0 && (
+        <p className="mt-1 text-sm text-circuit">Reordering items from a past request — feel free to adjust anything.</p>
+      )}
 
       <div className="mt-5 flex items-center gap-2">
         {STEPS.map((s, idx) => (

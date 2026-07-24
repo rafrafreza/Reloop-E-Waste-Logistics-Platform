@@ -3,8 +3,17 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_role
 from app.database import get_db
-from app.models import Address, Category, CollectionRequest, RequestItem, RequestItemImage, User
-from app.schemas import AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut
+from app.models import (
+    Address,
+    Category,
+    CollectionRequest,
+    PartnerProfile,
+    Rating,
+    RequestItem,
+    RequestItemImage,
+    User,
+)
+from app.schemas import AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut, ImpactStats, RatingCreate
 from app.utils import log_status, to_request_out
 
 router = APIRouter(prefix="/api/consumer", tags=["consumer"])
@@ -21,6 +30,7 @@ def _request_query(db: Session):
         joinedload(CollectionRequest.quotation),
         joinedload(CollectionRequest.assignment),
         joinedload(CollectionRequest.history),
+        joinedload(CollectionRequest.rating),
     )
 
 
@@ -190,5 +200,71 @@ def cancel_request(request_id: int, db: Session = Depends(get_db), user: User = 
 
     req.status = "CANCELLED"
     log_status(db, req.id, "CANCELLED", "Cancelled by consumer")
+    db.commit()
+    return to_request_out(_get_owned_request(db, request_id, user.id))
+
+
+@router.get("/impact", response_model=ImpactStats)
+def my_impact(db: Session = Depends(get_db), user: User = Depends(require_consumer)):
+    completed = (
+        db.query(CollectionRequest)
+        .options(joinedload(CollectionRequest.items).joinedload(RequestItem.category))
+        .filter(CollectionRequest.consumer_id == user.id, CollectionRequest.status == "COMPLETED")
+        .all()
+    )
+    total_weight = 0.0
+    total_co2 = 0.0
+    item_count = 0
+    for r in completed:
+        for item in r.items:
+            weight = item.actual_weight_kg or item.estimated_weight_kg
+            co2_factor = item.category.co2_factor_kg if item.category else 1.5
+            total_weight += weight
+            total_co2 += weight * co2_factor
+            item_count += item.quantity
+
+    return ImpactStats(
+        total_weight_kg=round(total_weight, 2),
+        total_co2_saved_kg=round(total_co2, 2),
+        total_requests_completed=len(completed),
+        total_items_recycled=item_count,
+    )
+
+
+@router.post("/requests/{request_id}/rate", response_model=CollectionRequestOut)
+def rate_request(request_id: int, payload: RatingCreate, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
+    req = _get_owned_request(db, request_id, user.id)
+    if req.status != "COMPLETED":
+        raise HTTPException(status_code=400, detail="You can only rate a completed request")
+    if req.rating:
+        raise HTTPException(status_code=400, detail="This request has already been rated")
+    if payload.partner_rating is None and payload.centre_rating is None:
+        raise HTTPException(status_code=400, detail="Provide at least one rating")
+    if payload.partner_rating is not None and not req.assignment:
+        raise HTTPException(status_code=400, detail="This request has no assigned partner to rate")
+
+    rating = Rating(
+        request_id=req.id,
+        consumer_id=user.id,
+        partner_rating=payload.partner_rating,
+        partner_review=payload.partner_review,
+        centre_rating=payload.centre_rating,
+        centre_review=payload.centre_review,
+    )
+    db.add(rating)
+
+    if payload.partner_rating is not None and req.assignment:
+        profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == req.assignment.partner_id).first()
+        if profile:
+            total = profile.avg_rating * profile.rating_count + payload.partner_rating
+            profile.rating_count += 1
+            profile.avg_rating = round(total / profile.rating_count, 2)
+
+    if payload.centre_rating is not None and req.centre:
+        centre = req.centre
+        total = centre.avg_rating * centre.rating_count + payload.centre_rating
+        centre.rating_count += 1
+        centre.avg_rating = round(total / centre.rating_count, 2)
+
     db.commit()
     return to_request_out(_get_owned_request(db, request_id, user.id))

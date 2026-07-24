@@ -29,20 +29,21 @@ def run():
         db.add(admin)
 
         # --- Categories --------------------------------------------------
+        # (name, icon, price per kg, estimated kg CO2e avoided per kg recycled)
         categories = [
-            ("Mobile Phone", "\U0001F4F1", 120.0),
-            ("Laptop", "\U0001F4BB", 90.0),
-            ("Desktop Computer", "\U0001F5A5", 70.0),
-            ("LED / LCD TV", "\U0001F4FA", 55.0),
-            ("Refrigerator", "\U0001F9CA", 35.0),
-            ("Washing Machine", "\U0001F300", 40.0),
-            ("Air Conditioner", "\u2744\ufe0f", 45.0),
-            ("Microwave Oven", "\U0001F372", 30.0),
-            ("Printer", "\U0001F5A8", 25.0),
-            ("Batteries", "\U0001F50B", 15.0),
+            ("Mobile Phone", "\U0001F4F1", 120.0, 3.5),
+            ("Laptop", "\U0001F4BB", 90.0, 3.0),
+            ("Desktop Computer", "\U0001F5A5", 70.0, 2.5),
+            ("LED / LCD TV", "\U0001F4FA", 55.0, 2.0),
+            ("Refrigerator", "\U0001F9CA", 35.0, 1.8),
+            ("Washing Machine", "\U0001F300", 40.0, 1.5),
+            ("Air Conditioner", "\u2744\ufe0f", 45.0, 2.2),
+            ("Microwave Oven", "\U0001F372", 30.0, 1.6),
+            ("Printer", "\U0001F5A8", 25.0, 1.4),
+            ("Batteries", "\U0001F50B", 15.0, 4.0),
         ]
-        for name, icon, price in categories:
-            db.add(Category(name=name, icon=icon, base_price_per_kg=price))
+        for name, icon, price, co2 in categories:
+            db.add(Category(name=name, icon=icon, base_price_per_kg=price, co2_factor_kg=co2))
 
         # --- Centres (each is also a login user) ------------------------
         centre_user_1 = User(
@@ -124,6 +125,8 @@ def run():
             ("service_cities", "Patna,Delhi", "Comma-separated list of serviceable cities"),
             ("default_pickup_charge", "50", "Default pickup charge (Rs.) suggested to centres"),
             ("default_handling_charge", "30", "Default handling charge (Rs.) suggested to centres"),
+            ("platform_fee_percent", "5", "Platform commission (%) of material value, for revenue reporting"),
+            ("partner_pickup_fee", "40", "Flat fee (Rs.) paid to a pickup partner per completed job"),
         ]
         for key, value, desc in settings:
             db.add(Setting(key=key, value=value, description=desc))

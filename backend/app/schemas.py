@@ -24,6 +24,8 @@ class RegisterRequest(BaseModel):
     address: str | None = None
     # Partner + Centre
     city: str | None = None
+    # Optional referral code entered at signup
+    referral_code: str | None = None
 
     @field_validator("role")
     @classmethod
@@ -49,6 +51,8 @@ class UserOut(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    referral_code: str
+    reward_points: int
 
     class Config:
         from_attributes = True
@@ -66,6 +70,11 @@ class ProfileOut(UserOut):
     city: str | None = None
     centre_name: str | None = None
     address: str | None = None
+    avg_rating: float | None = None
+    rating_count: int | None = None
+    total_earnings: float | None = None
+    referral_count: int = 0
+    status: str | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -116,6 +125,7 @@ class CategoryCreate(BaseModel):
     icon: str = "\U0001F50C"
     base_price_per_kg: float = 0.0
     is_active: bool = True
+    co2_factor_kg: float = 1.5
 
 
 class CategoryOut(CategoryCreate):
@@ -183,6 +193,7 @@ class QuotationOut(BaseModel):
     pickup_charge: float
     total_amount: float
     status: str
+    platform_commission: float = 0.0
     created_at: datetime
 
     class Config:
@@ -208,6 +219,8 @@ class AssignmentOut(BaseModel):
     partner_name: str | None = None
     partner_phone: str | None = None
     assigned_at: datetime
+    payout_amount: float = 0.0
+    payout_status: str = "PENDING"
 
     class Config:
         from_attributes = True
@@ -221,6 +234,31 @@ class AddressBrief(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RatingOut(BaseModel):
+    partner_rating: int | None = None
+    partner_review: str | None = None
+    centre_rating: int | None = None
+    centre_review: str | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RatingCreate(BaseModel):
+    partner_rating: int | None = Field(default=None, ge=1, le=5)
+    partner_review: str | None = None
+    centre_rating: int | None = Field(default=None, ge=1, le=5)
+    centre_review: str | None = None
+
+    @field_validator("partner_review", "centre_review")
+    @classmethod
+    def trim_review(cls, v):
+        if v is not None:
+            v = v.strip()[:500] or None
+        return v
 
 
 class CollectionRequestOut(BaseModel):
@@ -241,6 +279,7 @@ class CollectionRequestOut(BaseModel):
     quotation: QuotationOut | None = None
     assignment: AssignmentOut | None = None
     history: list[StatusHistoryOut] = []
+    rating: RatingOut | None = None
 
     class Config:
         from_attributes = True
@@ -278,6 +317,47 @@ class NotificationOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Support tickets
+# ---------------------------------------------------------------------------
+
+
+class SupportTicketCreate(BaseModel):
+    subject: str = Field(min_length=3, max_length=150)
+    message: str = Field(min_length=5)
+    request_id: int | None = None
+
+
+class SupportTicketAdminUpdate(BaseModel):
+    status: str
+    admin_response: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def valid_status(cls, v: str) -> str:
+        v = v.upper()
+        if v not in {"OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"}:
+            raise ValueError("Invalid ticket status")
+        return v
+
+
+class SupportTicketOut(BaseModel):
+    id: int
+    user_id: int
+    user_name: str | None = None
+    user_role: str | None = None
+    request_id: int | None
+    subject: str
+    message: str
+    status: str
+    admin_response: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
 
@@ -302,6 +382,8 @@ class CentreOut(BaseModel):
     address: str
     capacity_kg: float
     user_id: int
+    avg_rating: float = 0.0
+    rating_count: int = 0
 
     class Config:
         from_attributes = True
@@ -315,6 +397,8 @@ class PartnerOut(BaseModel):
     vehicle_number: str | None
     city: str
     status: str
+    avg_rating: float = 0.0
+    rating_count: int = 0
 
     class Config:
         from_attributes = True
@@ -328,9 +412,21 @@ class InventoryItemOut(BaseModel):
     weight_kg: float
     status: str
     received_at: datetime
+    dispatched_to: str | None = None
+    dispatched_at: datetime | None = None
+    recycled_at: datetime | None = None
 
     class Config:
         from_attributes = True
+
+
+class InventoryDispatchRequest(BaseModel):
+    item_ids: list[int]
+    recycler_name: str = Field(min_length=2, max_length=150)
+
+
+class InventoryRecycleRequest(BaseModel):
+    item_ids: list[int]
 
 
 class DashboardStats(BaseModel):
@@ -344,3 +440,57 @@ class DashboardStats(BaseModel):
     completed_requests: int
     total_weight_kg: float
     total_revenue: float
+
+
+class CapacityStats(BaseModel):
+    capacity_kg: float
+    used_kg: float
+    percent_used: float
+
+
+class PartnerEarningsOut(BaseModel):
+    total_earnings: float
+    paid_earnings: float
+    pending_earnings: float
+    completed_jobs: int
+    avg_rating: float
+    rating_count: int
+
+
+class RevenueBreakdown(BaseModel):
+    label: str
+    material_value: float
+    handling_revenue: float
+    pickup_pool: float
+    partner_payouts: float
+    platform_commission: float
+    completed_count: int
+
+
+class RevenueStats(BaseModel):
+    total_material_value: float
+    total_handling_revenue: float
+    total_partner_payouts: float
+    total_platform_commission: float
+    completed_count: int
+    by_period: list[RevenueBreakdown]
+    by_city: list[RevenueBreakdown]
+
+
+class ImpactStats(BaseModel):
+    total_weight_kg: float
+    total_co2_saved_kg: float
+    total_requests_completed: int
+    total_items_recycled: int
+
+
+class AuditLogOut(BaseModel):
+    id: int
+    actor_id: int | None
+    actor_name: str | None = None
+    action: str
+    details: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

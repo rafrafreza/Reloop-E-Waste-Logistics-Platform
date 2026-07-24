@@ -18,6 +18,7 @@ export const authApi = {
 export const commonApi = {
   categories: () => client.get("/api/categories"),
   publicSettings: () => client.get("/api/settings/public"),
+  publicImpact: () => client.get("/api/impact/public"),
   notifications: () => client.get("/api/notifications"),
   unreadCount: () => client.get("/api/notifications/unread-count"),
   markRead: (id) => client.post(`/api/notifications/${id}/read`),
@@ -38,6 +39,15 @@ export const uploadApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Support tickets (shared across roles)
+// ---------------------------------------------------------------------------
+export const supportApi = {
+  listMine: () => client.get("/api/support/tickets"),
+  get: (id) => client.get(`/api/support/tickets/${id}`),
+  create: (payload) => client.post("/api/support/tickets", payload),
+};
+
+// ---------------------------------------------------------------------------
 // Consumer
 // ---------------------------------------------------------------------------
 export const consumerApi = {
@@ -52,6 +62,8 @@ export const consumerApi = {
   acceptQuote: (id) => client.post(`/api/consumer/requests/${id}/accept-quote`),
   rejectQuote: (id) => client.post(`/api/consumer/requests/${id}/reject-quote`),
   cancelRequest: (id) => client.post(`/api/consumer/requests/${id}/cancel`),
+  rateRequest: (id, payload) => client.post(`/api/consumer/requests/${id}/rate`, payload),
+  impact: () => client.get("/api/consumer/impact"),
 };
 
 // ---------------------------------------------------------------------------
@@ -64,7 +76,10 @@ export const centreApi = {
   listPartners: () => client.get("/api/centre/partners"),
   assignPartner: (id, partnerUserId) => client.post(`/api/centre/requests/${id}/assign`, { partner_user_id: partnerUserId }),
   completeRequest: (id) => client.post(`/api/centre/requests/${id}/complete`),
-  inventory: () => client.get("/api/centre/inventory"),
+  inventory: (status) => client.get("/api/centre/inventory", { params: status ? { status } : {} }),
+  dispatchInventory: (itemIds, recyclerName) => client.post("/api/centre/inventory/dispatch", { item_ids: itemIds, recycler_name: recyclerName }),
+  recycleInventory: (itemIds) => client.post("/api/centre/inventory/recycle", { item_ids: itemIds }),
+  capacity: () => client.get("/api/centre/capacity"),
   dashboard: () => client.get("/api/centre/dashboard"),
 };
 
@@ -78,6 +93,8 @@ export const partnerApi = {
   verifyOtp: (id, payload) => client.post(`/api/partner/requests/${id}/verify-otp`, payload),
   deliver: (id) => client.post(`/api/partner/requests/${id}/deliver`),
   dashboard: () => client.get("/api/partner/dashboard"),
+  setAvailability: (available) => client.patch("/api/partner/availability", null, { params: { available } }),
+  earnings: () => client.get("/api/partner/earnings"),
 };
 
 // ---------------------------------------------------------------------------
@@ -96,4 +113,9 @@ export const adminApi = {
   listCentres: () => client.get("/api/admin/centres"),
   listPartners: () => client.get("/api/admin/partners"),
   listAllRequests: (status) => client.get("/api/admin/requests", { params: status ? { status } : {} }),
+  revenue: () => client.get("/api/admin/revenue"),
+  impact: () => client.get("/api/admin/impact"),
+  auditLog: () => client.get("/api/admin/audit-log"),
+  listTickets: (status) => client.get("/api/admin/support/tickets", { params: status ? { status } : {} }),
+  respondToTicket: (id, payload) => client.put(`/api/admin/support/tickets/${id}`, payload),
 };

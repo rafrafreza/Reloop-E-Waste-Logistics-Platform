@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import seed
-from app.routers import admin, auth, centre, common, consumer, partner, uploads
+from app.routers import admin, auth, centre, common, consumer, partner, support, uploads
 
 app = FastAPI(
     title="Reloop API",
@@ -37,6 +37,7 @@ app.include_router(centre.router)
 app.include_router(partner.router)
 app.include_router(admin.router)
 app.include_router(uploads.router)
+app.include_router(support.router)
 
 
 @app.get("/api/health")
