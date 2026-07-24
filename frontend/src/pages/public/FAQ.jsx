@@ -17,6 +17,10 @@ const FAQS = [
     q: "Can I cancel a request?",
     a: "Yes, any time before you accept a quotation. Once a pickup partner is assigned, contact support to cancel.",
   },
+  {
+    q: "Is this a live commercial service?",
+    a: "No — Reloop is a college demonstration project showcasing a full-stack logistics workflow, not a production business.",
+  },
 ];
 
 export default function FAQ() {

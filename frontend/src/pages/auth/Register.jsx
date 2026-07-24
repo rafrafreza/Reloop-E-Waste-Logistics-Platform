@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, ROLE_HOME } from "../../context/AuthContext";
 import { apiErrorMessage } from "../../api/client";
 import { Banner } from "../../components/ui/Primitives";
@@ -17,6 +17,7 @@ export default function Register() {
   const navigate = useNavigate();
   const cities = useServiceCities();
   const [role, setRole] = useState("CONSUMER");
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -26,6 +27,7 @@ export default function Register() {
     vehicle_number: "",
     centre_name: "",
     address: "",
+    referral_code: searchParams.get("ref") || "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,6 +128,11 @@ export default function Register() {
         <div>
           <label className="label">Password</label>
           <input required type="password" minLength={6} className="input" value={form.password} onChange={update("password")} placeholder="At least 6 characters" />
+        </div>
+        <div>
+          <label className="label">Referral code (optional)</label>
+          <input className="input font-mono uppercase" value={form.referral_code} onChange={update("referral_code")} placeholder="e.g. 7YT6HLK" maxLength={12} />
+          <p className="field-label mt-1">Got a code from a friend? You'll both earn bonus points.</p>
         </div>
 
         {(role === "PARTNER" || role === "CENTRE") && (

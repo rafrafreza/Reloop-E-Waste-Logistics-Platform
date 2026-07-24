@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
@@ -9,11 +9,45 @@ import Timeline from "../../components/Timeline";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
 
+const TERMINAL_STATUSES = ["COMPLETED", "CANCELLED", "REJECTED"];
+
+function StarPicker({ value, onChange }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          className={`text-2xl leading-none ${n <= value ? "text-amber" : "text-ink/15"}`}
+          aria-label={`${n} star${n !== 1 ? "s" : ""}`}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StarDisplay({ value }) {
+  return (
+    <span className="text-amber">
+      {"★".repeat(value)}
+      <span className="text-ink/15">{"★".repeat(5 - value)}</span>
+    </span>
+  );
+}
+
 export default function RequestDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [request, setRequest] = useState(null);
   const [error, setError] = useState("");
   const [acting, setActing] = useState(false);
+  const [partnerRating, setPartnerRating] = useState(0);
+  const [centreRating, setCentreRating] = useState(0);
+  const [partnerReview, setPartnerReview] = useState("");
+  const [centreReview, setCentreReview] = useState("");
 
   const load = () => consumerApi.getRequest(id).then((res) => setRequest(res.data));
 
@@ -35,6 +69,35 @@ export default function RequestDetail() {
     } finally {
       setActing(false);
     }
+  };
+
+  const handleReorder = () => {
+    const prefillItems = request.items.map((i) => ({
+      category_id: i.category_id,
+      description: i.description || "",
+      quantity: i.quantity,
+      estimated_weight_kg: i.actual_weight_kg || i.estimated_weight_kg,
+      length_cm: i.length_cm ?? "",
+      breadth_cm: i.breadth_cm ?? "",
+      height_cm: i.height_cm ?? "",
+    }));
+    navigate("/consumer/new-request", { state: { prefillItems } });
+  };
+
+  const submitRating = async (e) => {
+    e.preventDefault();
+    if (!partnerRating && !centreRating) {
+      setError("Pick at least one rating before submitting.");
+      return;
+    }
+    await act(() =>
+      consumerApi.rateRequest(id, {
+        partner_rating: partnerRating || null,
+        partner_review: partnerReview || null,
+        centre_rating: centreRating || null,
+        centre_review: centreReview || null,
+      })
+    );
   };
 
   return (
@@ -122,8 +185,58 @@ export default function RequestDetail() {
               Cancel request
             </button>
           )}
+          {request.status === "COMPLETED" && (
+            <Link to={`/consumer/requests/${id}/certificate`} className="btn-secondary">
+              View certificate
+            </Link>
+          )}
+          {TERMINAL_STATUSES.includes(request.status) && (
+            <button onClick={handleReorder} className="btn-secondary">
+              Reorder these items
+            </button>
+          )}
         </div>
       </div>
+
+      {request.status === "COMPLETED" && (
+        <div className="ticket mt-6 p-6">
+          <p className="field-label">Rate your experience</p>
+          {request.rating ? (
+            <div className="mt-3 space-y-3 text-sm">
+              {request.rating.partner_rating != null && (
+                <div>
+                  <p className="text-ink">Pickup partner <StarDisplay value={request.rating.partner_rating} /></p>
+                  {request.rating.partner_review && <p className="mt-1 text-inkfaint">"{request.rating.partner_review}"</p>}
+                </div>
+              )}
+              {request.rating.centre_rating != null && (
+                <div>
+                  <p className="text-ink">Segregation centre <StarDisplay value={request.rating.centre_rating} /></p>
+                  {request.rating.centre_review && <p className="mt-1 text-inkfaint">"{request.rating.centre_review}"</p>}
+                </div>
+              )}
+            </div>
+          ) : (
+            <form onSubmit={submitRating} className="mt-3 space-y-4">
+              {request.assignment && (
+                <div>
+                  <label className="label">Pickup partner ({request.assignment.partner_name})</label>
+                  <StarPicker value={partnerRating} onChange={setPartnerRating} />
+                  <input className="input mt-2" placeholder="Optional review" value={partnerReview} onChange={(e) => setPartnerReview(e.target.value)} />
+                </div>
+              )}
+              <div>
+                <label className="label">Segregation centre ({request.centre_name})</label>
+                <StarPicker value={centreRating} onChange={setCentreRating} />
+                <input className="input mt-2" placeholder="Optional review" value={centreReview} onChange={(e) => setCentreReview(e.target.value)} />
+              </div>
+              <button type="submit" disabled={acting} className="btn-primary">
+                Submit rating
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="ticket mt-6 p-6">
         <p className="field-label">Timeline</p>

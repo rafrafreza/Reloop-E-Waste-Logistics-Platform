@@ -14,6 +14,7 @@ from app.schemas import (
     TokenResponse,
     UserOut,
 )
+from app.utils import notify
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -34,6 +35,16 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     # are active immediately.
     requires_approval = payload.role in ("PARTNER", "CENTRE")
 
+    # Optional referral bonus: if a valid code was entered, both the new
+    # signup and the person who referred them get a small reward-points
+    # bonus. An unrecognized code is ignored rather than blocking signup.
+    referrer = None
+    new_user_bonus = 0
+    if payload.referral_code:
+        referrer = db.query(User).filter(User.referral_code == payload.referral_code.strip().upper()).first()
+        if referrer:
+            new_user_bonus = 20
+
     user = User(
         email=payload.email.lower(),
         hashed_password=hash_password(payload.password),
@@ -41,6 +52,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         phone=payload.phone,
         role=payload.role,
         is_active=not requires_approval,
+        referred_by=referrer.referral_code if referrer else None,
+        reward_points=new_user_bonus,
     )
     db.add(user)
     db.flush()
@@ -59,6 +72,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
             city=payload.city,
             status="AVAILABLE",
         ))
+
+    if referrer:
+        referrer.reward_points += 50
+        notify(db, referrer.id, "Referral bonus earned",
+               f"{user.full_name} joined Reloop using your referral code. You earned 50 points!")
 
     db.commit()
     db.refresh(user)
@@ -106,12 +124,20 @@ def _serialize_profile(db: Session, user: User) -> ProfileOut:
         if profile:
             data["vehicle_number"] = profile.vehicle_number
             data["city"] = profile.city
+            data["avg_rating"] = profile.avg_rating
+            data["rating_count"] = profile.rating_count
+            data["total_earnings"] = profile.total_earnings
+            data["status"] = profile.status
     elif user.role == "CENTRE":
         profile = db.query(CentreProfile).filter(CentreProfile.user_id == user.id).first()
         if profile:
             data["centre_name"] = profile.centre_name
             data["address"] = profile.address
             data["city"] = profile.city
+            data["avg_rating"] = profile.avg_rating
+            data["rating_count"] = profile.rating_count
+
+    data["referral_count"] = db.query(User).filter(User.referred_by == user.referral_code).count()
     return ProfileOut(**data)
 
 
