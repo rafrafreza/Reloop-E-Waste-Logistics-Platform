@@ -3,8 +3,9 @@ import { consumerApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
 import useServiceCities from "../../hooks/useServiceCities";
+import MapPicker from "../../components/MapPicker";
 
-const EMPTY_FORM = { label: "Home", street: "", city: "", state: "", pincode: "", is_default: false };
+const EMPTY_FORM = { label: "Home", street: "", city: "", state: "", pincode: "", is_default: false, lat: null, lng: null };
 
 export default function Addresses() {
   const cities = useServiceCities();
@@ -30,7 +31,7 @@ export default function Addresses() {
 
   const openEdit = (addr) => {
     setEditing(addr);
-    setForm({ label: addr.label, street: addr.street, city: addr.city, state: addr.state, pincode: addr.pincode, is_default: addr.is_default });
+    setForm({ label: addr.label, street: addr.street, city: addr.city, state: addr.state, pincode: addr.pincode, is_default: addr.is_default, lat: addr.lat, lng: addr.lng });
     setError("");
     setModalOpen(true);
   };
@@ -139,7 +140,11 @@ export default function Addresses() {
             <input type="checkbox" checked={form.is_default} onChange={update("is_default")} />
             Set as default address
           </label>
-          <button type="submit" disabled={saving} className="btn-primary w-full">
+          <div className="pt-2">
+            <label className="label">Pin Location</label>
+            <MapPicker lat={form.lat} lng={form.lng} onChange={(lat, lng) => setForm(f => ({ ...f, lat, lng }))} />
+          </div>
+          <button type="submit" disabled={saving} className="btn-primary w-full mt-4">
             {saving ? "Saving..." : "Save address"}
           </button>
         </form>

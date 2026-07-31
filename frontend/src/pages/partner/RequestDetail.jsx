@@ -8,6 +8,7 @@ import Stamp from "../../components/ui/Stamp";
 import Timeline from "../../components/Timeline";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
+import MapViewer from "../../components/MapViewer";
 
 export default function PartnerRequestDetail() {
   const { id } = useParams();
@@ -73,7 +74,25 @@ export default function PartnerRequestDetail() {
         <div className="mt-4 space-y-1 text-sm">
           <p><span className="font-medium text-ink">Consumer: </span><span className="text-inkfaint">{request.consumer_name} {request.consumer_phone && `· ${request.consumer_phone}`}</span></p>
           {request.address && (
-            <p><span className="font-medium text-ink">Address: </span><span className="text-inkfaint">{request.address.street}, {request.address.city}, {request.address.state} {request.address.pincode}</span></p>
+            <div>
+              <p><span className="font-medium text-ink">Address: </span><span className="text-inkfaint">{request.address.street}, {request.address.city}, {request.address.state} {request.address.pincode}</span></p>
+              {request.address.lat && request.address.lng && (
+                <>
+                  <MapViewer lat={request.address.lat} lng={request.address.lng} />
+                  {request.status === "ASSIGNED" && (
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${request.address.lat},${request.address.lng}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="btn-secondary w-full mt-3 flex justify-center items-center gap-2"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                      Open in Google Maps Navigation
+                    </a>
+                  )}
+                </>
+              )}
+            </div>
           )}
           {request.notes && <p><span className="font-medium text-ink">Notes: </span><span className="text-inkfaint">{request.notes}</span></p>}
         </div>
