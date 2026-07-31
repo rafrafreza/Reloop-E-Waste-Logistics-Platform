@@ -105,6 +105,8 @@ class AddressCreate(BaseModel):
     city: str
     state: str
     pincode: str
+    lat: float | None = None
+    lng: float | None = None
     is_default: bool = False
 
 
@@ -231,6 +233,8 @@ class AddressBrief(BaseModel):
     city: str
     state: str
     pincode: str
+    lat: float | None = None
+    lng: float | None = None
 
     class Config:
         from_attributes = True
