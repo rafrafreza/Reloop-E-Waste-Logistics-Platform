@@ -130,60 +130,6 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
     return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
 
 
-@router.get("/partners", response_model=list[PartnerOut])
-def list_partners(db: Session = Depends(get_db), user: User = Depends(require_centre)):
-    centre = _get_my_centre(db, user)
-    partners = (
-        db.query(PartnerProfile)
-        .join(User, PartnerProfile.user_id == User.id)
-        .filter(PartnerProfile.city == centre.city, User.is_active == True)  # noqa: E712
-        .all()
-    )
-    out = []
-    for p in partners:
-        out.append(PartnerOut(
-            id=p.id, user_id=p.user_id, full_name=p.user.full_name, phone=p.user.phone,
-            vehicle_number=p.vehicle_number, city=p.city, status=p.status,
-            avg_rating=p.avg_rating, rating_count=p.rating_count,
-        ))
-    return out
-
-
-@router.post("/requests/{request_id}/assign", response_model=CollectionRequestOut)
-def assign_partner(request_id: int, payload: AssignPartnerRequest, db: Session = Depends(get_db), user: User = Depends(require_centre)):
-    centre = _get_my_centre(db, user)
-    partner_user_id = payload.partner_user_id
-    req = _request_query(db).filter(CollectionRequest.id == request_id).first()
-    if not req or req.centre_id != centre.id:
-        raise HTTPException(status_code=404, detail="Request not found")
-    if req.status != "ACCEPTED":
-        raise HTTPException(status_code=400, detail="Request must be accepted by the consumer before assigning a partner")
-
-    partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == partner_user_id).first()
-    if not partner_profile or partner_profile.city != centre.city:
-        raise HTTPException(status_code=400, detail="Invalid partner for this centre's city")
-    if partner_profile.status != "AVAILABLE":
-        raise HTTPException(status_code=400, detail="This partner is not currently available")
-
-    from app.utils import generate_otp
-
-    otp = generate_otp()
-    payout = get_setting_float(db, "partner_pickup_fee", 40.0)
-    db.add(Assignment(request_id=req.id, partner_id=partner_user_id, payout_amount=round(payout, 2)))
-    req.status = "ASSIGNED"
-    req.pickup_otp = otp
-    partner_profile.status = "BUSY"
-    log_status(db, req.id, "ASSIGNED", "Assigned to pickup partner")
-    notify(db, partner_user_id, "New pickup assignment",
-           f"You have been assigned to pickup request #{req.id}. You'll earn Rs.{payout:.2f} for this job.",
-           link=f"/partner/requests/{req.id}")
-    notify(db, req.consumer_id, "Pickup partner assigned",
-           f"A pickup partner has been assigned to request #{req.id}. Your handover OTP is {otp}.",
-           link=f"/consumer/requests/{req.id}")
-
-    db.commit()
-    return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
-
 
 @router.post("/requests/{request_id}/complete", response_model=CollectionRequestOut)
 def complete_request(request_id: int, db: Session = Depends(get_db), user: User = Depends(require_centre)):

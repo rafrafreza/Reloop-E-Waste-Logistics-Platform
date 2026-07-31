@@ -10,9 +10,10 @@ from app.models import (
     PartnerProfile,
     RequestItem,
     User,
+    Address,
 )
 from app.schemas import CollectionRequestOut, DashboardStats, OtpVerifyRequest, PartnerEarningsOut
-from app.utils import log_status, notify, to_request_out
+from app.utils import log_status, notify, to_request_out, get_setting_float
 
 router = APIRouter(prefix="/api/partner", tags=["partner"])
 require_partner = require_role("PARTNER")
@@ -58,9 +59,73 @@ def list_requests(scope: str = "active", db: Session = Depends(get_db), user: Us
     return [to_request_out(r) for r in reqs]
 
 
+@router.get("/available-requests", response_model=list[CollectionRequestOut])
+def list_available_requests(db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
+    if not partner_profile:
+        raise HTTPException(status_code=400, detail="Partner profile not found")
+        
+    q = _request_query(db).join(Address, CollectionRequest.address_id == Address.id).filter(
+        CollectionRequest.status == "ACCEPTED",
+        Address.city == partner_profile.city
+    )
+    reqs = q.order_by(CollectionRequest.updated_at.desc()).all()
+    return [to_request_out(r) for r in reqs]
+
+
+@router.post("/requests/{request_id}/accept", response_model=CollectionRequestOut)
+def accept_request(request_id: int, db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
+    if not partner_profile:
+        raise HTTPException(status_code=400, detail="Partner profile not found")
+        
+    if partner_profile.status != "AVAILABLE":
+        raise HTTPException(status_code=400, detail="You must be AVAILABLE to accept a request")
+        
+    req = _request_query(db).filter(CollectionRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "ACCEPTED":
+        raise HTTPException(status_code=400, detail="This request is no longer available to be accepted")
+        
+    # ensure it's in their city
+    if req.address.city != partner_profile.city:
+        raise HTTPException(status_code=400, detail="This request is outside your service city")
+        
+    from app.utils import generate_otp
+    otp = generate_otp()
+    payout = get_setting_float(db, "partner_pickup_fee", 40.0)
+    
+    db.add(Assignment(request_id=req.id, partner_id=user.id, payout_amount=round(payout, 2)))
+    req.status = "ASSIGNED"
+    req.pickup_otp = otp
+    partner_profile.status = "BUSY"
+    
+    log_status(db, req.id, "ASSIGNED", f"Accepted by pickup partner {user.full_name}")
+    notify(db, req.consumer_id, "Pickup partner assigned",
+           f"{user.full_name} has accepted your request #{req.id} and is now assigned. Your handover OTP is {otp}.",
+           link=f"/consumer/requests/{req.id}")
+           
+    db.commit()
+    return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
+
+
 @router.get("/requests/{request_id}", response_model=CollectionRequestOut)
 def get_request(request_id: int, db: Session = Depends(get_db), user: User = Depends(require_partner)):
-    return to_request_out(_get_assigned_request(db, request_id, user.id))
+    req = _request_query(db).filter(CollectionRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    # Allowed if it is assigned to this partner
+    if req.assignment and req.assignment.partner_id == user.id:
+        return to_request_out(req)
+        
+    # Allowed if it is unassigned (ACCEPTED) and in this partner's city
+    partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
+    if req.status == "ACCEPTED" and partner_profile and req.address.city == partner_profile.city:
+        return to_request_out(req)
+        
+    raise HTTPException(status_code=404, detail="Request not found or not available")
 
 
 @router.post("/requests/{request_id}/start", response_model=CollectionRequestOut)

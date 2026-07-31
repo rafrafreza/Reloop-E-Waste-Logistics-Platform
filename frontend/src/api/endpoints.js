@@ -80,8 +80,6 @@ export const centreApi = {
   listRequests: (scope) => client.get("/api/centre/requests", { params: { scope } }),
   getRequest: (id) => client.get(`/api/centre/requests/${id}`),
   quote: (id, payload) => client.post(`/api/centre/requests/${id}/quote`, payload),
-  listPartners: () => client.get("/api/centre/partners"),
-  assignPartner: (id, partnerUserId) => client.post(`/api/centre/requests/${id}/assign`, { partner_user_id: partnerUserId }),
   completeRequest: (id) => client.post(`/api/centre/requests/${id}/complete`),
   inventory: (status) => client.get("/api/centre/inventory", { params: status ? { status } : {} }),
   dispatchInventory: (itemIds, recyclerName) => client.post("/api/centre/inventory/dispatch", { item_ids: itemIds, recycler_name: recyclerName }),
@@ -94,6 +92,8 @@ export const centreApi = {
 // Partner
 // ---------------------------------------------------------------------------
 export const partnerApi = {
+  getAvailableRequests: () => client.get("/api/partner/available-requests"),
+  acceptRequest: (id) => client.post(`/api/partner/requests/${id}/accept`),
   listRequests: (scope) => client.get("/api/partner/requests", { params: { scope } }),
   getRequest: (id) => client.get(`/api/partner/requests/${id}`),
   startPickup: (id) => client.post(`/api/partner/requests/${id}/start`),

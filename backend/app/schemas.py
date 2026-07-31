@@ -299,10 +299,6 @@ class OtpVerifyRequest(BaseModel):
     items: list[OtpVerifyItem]
 
 
-class AssignPartnerRequest(BaseModel):
-    partner_user_id: int
-
-
 # ---------------------------------------------------------------------------
 # Notifications
 # ---------------------------------------------------------------------------
