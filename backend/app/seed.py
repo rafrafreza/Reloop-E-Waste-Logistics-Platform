@@ -107,6 +107,224 @@ def run():
             city="Delhi", status="AVAILABLE", centre_id=centre_2.id,
         ))
 
+        # --- Additional Entries requested by User ------------------------
+        
+        # --- Patna 2 ---
+        centre_user_patna_2 = User(
+            email="centre.patna2@reloop.com",
+            hashed_password=hash_password("centre123"),
+            full_name="Patna Segregation Desk 2",
+            phone="9000002001",
+            role="CENTRE",
+        )
+        partner_user_patna_2 = User(
+            email="partner.patna2@reloop.com",
+            hashed_password=hash_password("partner123"),
+            full_name="Partner 2 Patna",
+            phone="9100002001",
+            role="PARTNER",
+        )
+        db.add_all([centre_user_patna_2, partner_user_patna_2])
+        db.flush()
+
+        centre_patna_2 = CentreProfile(
+            user_id=centre_user_patna_2.id,
+            centre_name="GreenLoop Segregation Centre - Patna #2",
+            city="Patna",
+            address="Industrial Area, Patna",
+            capacity_kg=5000,
+        )
+        db.add(centre_patna_2)
+        db.flush()
+
+        db.add(PartnerProfile(
+            user_id=partner_user_patna_2.id,
+            vehicle_number="BR-02-AA-0001",
+            city="Patna",
+            status="AVAILABLE",
+            centre_id=centre_patna_2.id,
+        ))
+
+        # --- Delhi 2 ---
+        centre_user_delhi_2 = User(
+            email="centre.delhi2@reloop.com",
+            hashed_password=hash_password("centre123"),
+            full_name="Delhi Segregation Desk 2",
+            phone="9000002002",
+            role="CENTRE",
+        )
+        partner_user_delhi_2 = User(
+            email="partner.delhi2@reloop.com",
+            hashed_password=hash_password("partner123"),
+            full_name="Partner 2 Delhi",
+            phone="9100002002",
+            role="PARTNER",
+        )
+        db.add_all([centre_user_delhi_2, partner_user_delhi_2])
+        db.flush()
+
+        centre_delhi_2 = CentreProfile(
+            user_id=centre_user_delhi_2.id,
+            centre_name="GreenLoop Segregation Centre - Delhi #2",
+            city="Delhi",
+            address="Industrial Area, Delhi",
+            capacity_kg=5000,
+        )
+        db.add(centre_delhi_2)
+        db.flush()
+
+        db.add(PartnerProfile(
+            user_id=partner_user_delhi_2.id,
+            vehicle_number="DL-02-AA-0002",
+            city="Delhi",
+            status="AVAILABLE",
+            centre_id=centre_delhi_2.id,
+        ))
+
+        # --- Mumbai 1 ---
+        centre_user_mumbai_1 = User(
+            email="centre.mumbai1@reloop.com",
+            hashed_password=hash_password("centre123"),
+            full_name="Mumbai Segregation Desk 1",
+            phone="9000001003",
+            role="CENTRE",
+        )
+        partner_user_mumbai_1 = User(
+            email="partner.mumbai1@reloop.com",
+            hashed_password=hash_password("partner123"),
+            full_name="Partner 1 Mumbai",
+            phone="9100001003",
+            role="PARTNER",
+        )
+        db.add_all([centre_user_mumbai_1, partner_user_mumbai_1])
+        db.flush()
+
+        centre_mumbai_1 = CentreProfile(
+            user_id=centre_user_mumbai_1.id,
+            centre_name="GreenLoop Segregation Centre - Mumbai #1",
+            city="Mumbai",
+            address="Industrial Area, Mumbai",
+            capacity_kg=5000,
+        )
+        db.add(centre_mumbai_1)
+        db.flush()
+
+        db.add(PartnerProfile(
+            user_id=partner_user_mumbai_1.id,
+            vehicle_number="MH-01-AA-0003",
+            city="Mumbai",
+            status="AVAILABLE",
+            centre_id=centre_mumbai_1.id,
+        ))
+
+        # --- Chennai 1 ---
+        centre_user_chennai_1 = User(
+            email="centre.chennai1@reloop.com",
+            hashed_password=hash_password("centre123"),
+            full_name="Chennai Segregation Desk 1",
+            phone="9000001004",
+            role="CENTRE",
+        )
+        partner_user_chennai_1 = User(
+            email="partner.chennai1@reloop.com",
+            hashed_password=hash_password("partner123"),
+            full_name="Partner 1 Chennai",
+            phone="9100001004",
+            role="PARTNER",
+        )
+        db.add_all([centre_user_chennai_1, partner_user_chennai_1])
+        db.flush()
+
+        centre_chennai_1 = CentreProfile(
+            user_id=centre_user_chennai_1.id,
+            centre_name="GreenLoop Segregation Centre - Chennai #1",
+            city="Chennai",
+            address="Industrial Area, Chennai",
+            capacity_kg=5000,
+        )
+        db.add(centre_chennai_1)
+        db.flush()
+
+        db.add(PartnerProfile(
+            user_id=partner_user_chennai_1.id,
+            vehicle_number="TN-01-AA-0004",
+            city="Chennai",
+            status="AVAILABLE",
+            centre_id=centre_chennai_1.id,
+        ))
+
+        # --- Chennai 2 ---
+        centre_user_chennai_2 = User(
+            email="centre.chennai2@reloop.com",
+            hashed_password=hash_password("centre123"),
+            full_name="Chennai Segregation Desk 2",
+            phone="9000002005",
+            role="CENTRE",
+        )
+        partner_user_chennai_2 = User(
+            email="partner.chennai2@reloop.com",
+            hashed_password=hash_password("partner123"),
+            full_name="Partner 2 Chennai",
+            phone="9100002005",
+            role="PARTNER",
+        )
+        db.add_all([centre_user_chennai_2, partner_user_chennai_2])
+        db.flush()
+
+        centre_chennai_2 = CentreProfile(
+            user_id=centre_user_chennai_2.id,
+            centre_name="GreenLoop Segregation Centre - Chennai #2",
+            city="Chennai",
+            address="Industrial Area, Chennai",
+            capacity_kg=5000,
+        )
+        db.add(centre_chennai_2)
+        db.flush()
+
+        db.add(PartnerProfile(
+            user_id=partner_user_chennai_2.id,
+            vehicle_number="TN-02-AA-0005",
+            city="Chennai",
+            status="AVAILABLE",
+            centre_id=centre_chennai_2.id,
+        ))
+
+        # --- Chennai 3 ---
+        centre_user_chennai_3 = User(
+            email="centre.chennai3@reloop.com",
+            hashed_password=hash_password("centre123"),
+            full_name="Chennai Segregation Desk 3",
+            phone="9000003006",
+            role="CENTRE",
+        )
+        partner_user_chennai_3 = User(
+            email="partner.chennai3@reloop.com",
+            hashed_password=hash_password("partner123"),
+            full_name="Partner 3 Chennai",
+            phone="9100003006",
+            role="PARTNER",
+        )
+        db.add_all([centre_user_chennai_3, partner_user_chennai_3])
+        db.flush()
+
+        centre_chennai_3 = CentreProfile(
+            user_id=centre_user_chennai_3.id,
+            centre_name="GreenLoop Segregation Centre - Chennai #3",
+            city="Chennai",
+            address="Industrial Area, Chennai",
+            capacity_kg=5000,
+        )
+        db.add(centre_chennai_3)
+        db.flush()
+
+        db.add(PartnerProfile(
+            user_id=partner_user_chennai_3.id,
+            vehicle_number="TN-03-AA-0006",
+            city="Chennai",
+            status="AVAILABLE",
+            centre_id=centre_chennai_3.id,
+        ))
+
         # --- Demo consumer -------------------------------------------------
         consumer = User(
             email="consumer@reloop.com",
@@ -192,7 +410,7 @@ def run():
             ("platform_name", "Reloop", "Displayed name of the platform"),
             ("support_email", "support@reloop.com", "Public support email"),
             ("support_phone", "1800-000-1234", "Public support phone number"),
-            ("service_cities", "Patna,Delhi", "Comma-separated list of serviceable cities"),
+            ("service_cities", "Patna,Delhi,Mumbai,Chennai", "Comma-separated list of serviceable cities"),
             ("default_pickup_charge", "50", "Default pickup charge (Rs.) suggested to centres"),
             ("default_handling_charge", "30", "Default handling charge (Rs.) suggested to centres"),
             ("platform_fee_percent", "5", "Platform commission (%) of material value, for revenue reporting"),

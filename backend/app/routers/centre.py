@@ -19,7 +19,6 @@ from app.models import (
     User,
 )
 from app.schemas import (
-    AssignPartnerRequest,
     CapacityStats,
     CentreAnalyticsOut,
     CentreCategoryWeight,
