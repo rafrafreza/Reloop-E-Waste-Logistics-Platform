@@ -42,9 +42,11 @@ export default function ActiveRequests() {
               key={r.id}
               request={r}
               basePath="/centre/requests"
+              extra={
                 r.status === "AT_CENTRE" ? (
                   <button onClick={() => complete(r)} className="btn-primary">Complete</button>
                 ) : null
+              }
             />
           )}
           emptyState={<EmptyState title="Nothing active right now" description="Requests move here once a consumer accepts your quotation." />}
