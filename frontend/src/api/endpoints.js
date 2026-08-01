@@ -86,6 +86,7 @@ export const centreApi = {
   recycleInventory: (itemIds) => client.post("/api/centre/inventory/recycle", { item_ids: itemIds }),
   capacity: () => client.get("/api/centre/capacity"),
   dashboard: () => client.get("/api/centre/dashboard"),
+  analytics: () => client.get("/api/centre/analytics"),
 };
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ export const partnerApi = {
 // ---------------------------------------------------------------------------
 export const adminApi = {
   dashboard: () => client.get("/api/admin/dashboard"),
+  analytics: () => client.get("/api/admin/analytics"),
   listUsers: (role) => client.get("/api/admin/users", { params: role ? { role } : {} }),
   toggleActive: (id) => client.patch(`/api/admin/users/${id}/toggle-active`),
   listCategories: () => client.get("/api/admin/categories"),
