@@ -332,3 +332,82 @@ class DashboardStats(BaseModel):
     completed_requests: int
     total_weight_kg: float
     total_revenue: float
+
+
+class RequestStatusCount(BaseModel):
+    status: str
+    count: int
+
+
+class TrendDataPoint(BaseModel):
+    date: str
+    requests: int
+    weight_kg: float
+    revenue: float
+
+
+class CategoryWeightCount(BaseModel):
+    category_name: str
+    weight_kg: float
+    item_count: int
+
+
+class CityAnalytics(BaseModel):
+    city: str
+    requests: int
+    weight_kg: float
+    partners: int
+    centres: int
+
+
+class UserRoleCount(BaseModel):
+    role: str
+    count: int
+
+
+class InventoryStatusCount(BaseModel):
+    status: str
+    weight_kg: float
+    count: int
+
+
+class AdminAnalyticsOut(BaseModel):
+    request_status_distribution: list[RequestStatusCount]
+    collection_revenue_trends: list[TrendDataPoint]
+    category_breakdown: list[CategoryWeightCount]
+    city_breakdown: list[CityAnalytics]
+    user_role_distribution: list[UserRoleCount]
+    inventory_status_breakdown: list[InventoryStatusCount]
+
+
+class CentreCategoryWeight(BaseModel):
+    category_name: str
+    weight_kg: float
+    item_count: int
+
+
+class CentreInventoryStatus(BaseModel):
+    status: str
+    weight_kg: float
+    count: int
+
+
+class CentreTrendPoint(BaseModel):
+    date: str
+    requests: int
+    weight_kg: float
+    revenue: float
+
+
+class CentrePartnerStatus(BaseModel):
+    status: str
+    count: int
+
+
+class CentreAnalyticsOut(BaseModel):
+    inventory_status_breakdown: list[CentreInventoryStatus]
+    category_breakdown: list[CentreCategoryWeight]
+    processing_trends: list[CentreTrendPoint]
+    partner_status_distribution: list[CentrePartnerStatus]
+
+

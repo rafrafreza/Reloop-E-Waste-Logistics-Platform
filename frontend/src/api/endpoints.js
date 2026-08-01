@@ -53,6 +53,7 @@ export const centreApi = {
   completeRequest: (id) => client.post(`/api/centre/requests/${id}/complete`),
   inventory: () => client.get("/api/centre/inventory"),
   dashboard: () => client.get("/api/centre/dashboard"),
+  analytics: () => client.get("/api/centre/analytics"),
 };
 
 // ---------------------------------------------------------------------------
@@ -72,6 +73,7 @@ export const partnerApi = {
 // ---------------------------------------------------------------------------
 export const adminApi = {
   dashboard: () => client.get("/api/admin/dashboard"),
+  analytics: () => client.get("/api/admin/analytics"),
   listUsers: (role) => client.get("/api/admin/users", { params: role ? { role } : {} }),
   toggleActive: (id) => client.patch(`/api/admin/users/${id}/toggle-active`),
   listCategories: () => client.get("/api/admin/categories"),

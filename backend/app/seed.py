@@ -115,6 +115,76 @@ def run():
             role="CONSUMER",
         )
         db.add(consumer)
+        db.flush()
+
+        # --- Demo addresses -----------------------------------------------
+        from app.models import Address, Assignment, CollectionRequest, InventoryItem, Quotation, RequestItem, StatusHistory
+        from datetime import datetime, timedelta
+
+        addr_patna = Address(
+            user_id=consumer.id, label="Home", street="Boring Road, Flat 302",
+            city="Patna", state="Bihar", pincode="800001", is_default=True
+        )
+        addr_delhi = Address(
+            user_id=consumer.id, label="Office", street="Connaught Place, Block B",
+            city="Delhi", state="Delhi", pincode="110001", is_default=False
+        )
+        db.add_all([addr_patna, addr_delhi])
+        db.flush()
+
+        # --- Demo Requests & Lifecycle Data -------------------------------
+        cat_map = {c.name: c.id for c in db.query(Category).all()}
+        now = datetime.utcnow()
+
+        # Request 1: Completed (Patna) - 5 days ago
+        req1 = CollectionRequest(
+            consumer_id=consumer.id, address_id=addr_patna.id, centre_id=centre_1.id,
+            status="COMPLETED", created_at=now - timedelta(days=5), updated_at=now - timedelta(days=4)
+        )
+        db.add(req1)
+        db.flush()
+
+        db.add(RequestItem(request_id=req1.id, category_id=cat_map.get("Laptop", 1), quantity=2, estimated_weight_kg=4.5, actual_weight_kg=4.8))
+        db.add(RequestItem(request_id=req1.id, category_id=cat_map.get("Mobile Phone", 1), quantity=3, estimated_weight_kg=0.6, actual_weight_kg=0.6))
+        db.add(Quotation(request_id=req1.id, material_value=500.0, handling_charge=30.0, pickup_charge=50.0, total_amount=420.0, status="ACCEPTED"))
+        db.add(Assignment(request_id=req1.id, partner_id=partner_user_1.id, assigned_at=now - timedelta(days=4)))
+        db.add(InventoryItem(centre_id=centre_1.id, request_id=req1.id, category_id=cat_map.get("Laptop", 1), weight_kg=4.8, status="RECYCLED", received_at=now - timedelta(days=4)))
+
+        # Request 2: At Centre (Delhi) - 3 days ago
+        req2 = CollectionRequest(
+            consumer_id=consumer.id, address_id=addr_delhi.id, centre_id=centre_2.id,
+            status="AT_CENTRE", created_at=now - timedelta(days=3), updated_at=now - timedelta(days=2)
+        )
+        db.add(req2)
+        db.flush()
+
+        db.add(RequestItem(request_id=req2.id, category_id=cat_map.get("Refrigerator", 1), quantity=1, estimated_weight_kg=45.0, actual_weight_kg=48.0))
+        db.add(Quotation(request_id=req2.id, material_value=1500.0, handling_charge=100.0, pickup_charge=150.0, total_amount=1250.0, status="ACCEPTED"))
+        db.add(Assignment(request_id=req2.id, partner_id=partner_user_2.id, assigned_at=now - timedelta(days=2)))
+        db.add(InventoryItem(centre_id=centre_2.id, request_id=req2.id, category_id=cat_map.get("Refrigerator", 1), weight_kg=48.0, status="IN_STORAGE", received_at=now - timedelta(days=2)))
+
+        # Request 3: Out for Pickup (Patna) - 1 day ago
+        req3 = CollectionRequest(
+            consumer_id=consumer.id, address_id=addr_patna.id, centre_id=centre_1.id,
+            status="OUT_FOR_PICKUP", created_at=now - timedelta(days=1), updated_at=now - timedelta(hours=6)
+        )
+        db.add(req3)
+        db.flush()
+
+        db.add(RequestItem(request_id=req3.id, category_id=cat_map.get("LED / LCD TV", 1), quantity=1, estimated_weight_kg=12.0))
+        db.add(Quotation(request_id=req3.id, material_value=600.0, handling_charge=40.0, pickup_charge=60.0, total_amount=500.0, status="ACCEPTED"))
+        db.add(Assignment(request_id=req3.id, partner_id=partner_user_1.id, assigned_at=now - timedelta(hours=12)))
+
+        # Request 4: Pending Quotation (Delhi) - Today
+        req4 = CollectionRequest(
+            consumer_id=consumer.id, address_id=addr_delhi.id, centre_id=None,
+            status="PENDING", created_at=now, updated_at=now
+        )
+        db.add(req4)
+        db.flush()
+
+        db.add(RequestItem(request_id=req4.id, category_id=cat_map.get("Printer", 1), quantity=2, estimated_weight_kg=8.0))
+        db.add(RequestItem(request_id=req4.id, category_id=cat_map.get("Batteries", 1), quantity=5, estimated_weight_kg=2.5))
 
         # --- Platform settings ---------------------------------------------
         settings = [
@@ -136,3 +206,4 @@ def run():
         print("             consumer@reloop.com / consumer123")
     finally:
         db.close()
+

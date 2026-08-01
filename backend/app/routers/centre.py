@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_role
@@ -6,6 +7,7 @@ from app.database import get_db
 from app.models import (
     Address,
     Assignment,
+    Category,
     CentreProfile,
     CollectionRequest,
     InventoryItem,
@@ -16,6 +18,11 @@ from app.models import (
 )
 from app.schemas import (
     AssignPartnerRequest,
+    CentreAnalyticsOut,
+    CentreCategoryWeight,
+    CentreInventoryStatus,
+    CentrePartnerStatus,
+    CentreTrendPoint,
     CollectionRequestOut,
     DashboardStats,
     InventoryItemOut,
@@ -244,3 +251,117 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_centre
         total_weight_kg=round(total_weight, 2),
         total_revenue=round(revenue, 2),
     )
+
+
+@router.get("/analytics", response_model=CentreAnalyticsOut)
+def analytics(db: Session = Depends(get_db), user: User = Depends(require_centre)):
+    centre = _get_my_centre(db, user)
+
+    # 1. Inventory Status Breakdown
+    inventory_statuses = ["IN_STORAGE", "DISPATCHED", "RECYCLED"]
+    inv_items = db.query(InventoryItem).filter(InventoryItem.centre_id == centre.id).all()
+    inv_map = {st: {"weight": 0.0, "count": 0} for st in inventory_statuses}
+    for item in inv_items:
+        st = item.status if item.status in inv_map else "IN_STORAGE"
+        inv_map[st]["weight"] += item.weight_kg
+        inv_map[st]["count"] += 1
+
+    inv_breakdown = [
+        CentreInventoryStatus(
+            status=st,
+            weight_kg=round(inv_map[st]["weight"], 2),
+            count=inv_map[st]["count"]
+        )
+        for st in inventory_statuses
+    ]
+
+    # 2. Category Breakdown for Centre's requests / inventory
+    cat_items = (
+        db.query(
+            Category.name,
+            func.sum(func.coalesce(RequestItem.actual_weight_kg, RequestItem.estimated_weight_kg, 0.0)),
+            func.sum(RequestItem.quantity)
+        )
+        .join(RequestItem, Category.id == RequestItem.category_id)
+        .join(CollectionRequest, RequestItem.request_id == CollectionRequest.id)
+        .filter(CollectionRequest.centre_id == centre.id)
+        .group_by(Category.name)
+        .all()
+    )
+
+    if not cat_items:
+        all_cats = db.query(Category).all()
+        cat_breakdown = [
+            CentreCategoryWeight(category_name=c.name, weight_kg=0.0, item_count=0)
+            for c in all_cats
+        ]
+    else:
+        cat_breakdown = [
+            CentreCategoryWeight(
+                category_name=c_name,
+                weight_kg=round(w or 0.0, 2),
+                item_count=int(q or 0)
+            )
+            for c_name, w, q in cat_items
+        ]
+
+    # 3. Processing Trends (Time-series)
+    centre_requests = (
+        db.query(CollectionRequest)
+        .options(
+            joinedload(CollectionRequest.items),
+            joinedload(CollectionRequest.quotation)
+        )
+        .filter(CollectionRequest.centre_id == centre.id)
+        .order_by(CollectionRequest.created_at.asc())
+        .all()
+    )
+
+    trends_map = {}
+    for r in centre_requests:
+        date_str = r.created_at.strftime("%Y-%m-%d") if r.created_at else "Unknown"
+        if date_str not in trends_map:
+            trends_map[date_str] = {"requests": 0, "weight_kg": 0.0, "revenue": 0.0}
+
+        trends_map[date_str]["requests"] += 1
+        req_weight = sum((item.actual_weight_kg or item.estimated_weight_kg or 0.0) for item in r.items)
+        trends_map[date_str]["weight_kg"] += req_weight
+
+        if r.quotation and r.status in ("COMPLETED", "AT_CENTRE", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP"):
+            trends_map[date_str]["revenue"] += (r.quotation.handling_charge + r.quotation.pickup_charge)
+
+    trends_list = [
+        CentreTrendPoint(
+            date=d,
+            requests=data["requests"],
+            weight_kg=round(data["weight_kg"], 2),
+            revenue=round(data["revenue"], 2)
+        )
+        for d, data in sorted(trends_map.items())
+    ]
+
+    # 4. Partner Status Distribution in centre's city
+    partner_statuses = ["AVAILABLE", "BUSY", "INACTIVE"]
+    partners = (
+        db.query(PartnerProfile)
+        .join(User, PartnerProfile.user_id == User.id)
+        .filter(PartnerProfile.city == centre.city)
+        .all()
+    )
+    partner_map = {st: 0 for st in partner_statuses}
+    for p in partners:
+        st = p.status if p.status in partner_map else "AVAILABLE"
+        partner_map[st] += 1
+
+    partner_dist = [
+        CentrePartnerStatus(status=st, count=partner_map[st])
+        for st in partner_statuses
+    ]
+
+    return CentreAnalyticsOut(
+        inventory_status_breakdown=inv_breakdown,
+        category_breakdown=cat_breakdown,
+        processing_trends=trends_list,
+        partner_status_distribution=partner_dist
+    )
+

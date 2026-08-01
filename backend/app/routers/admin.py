@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_role
 from app.database import get_db
 from app.models import (
+    Address,
     Category,
     CentreProfile,
     CollectionRequest,
@@ -14,15 +16,22 @@ from app.models import (
     User,
 )
 from app.schemas import (
+    AdminAnalyticsOut,
     CategoryCreate,
     CategoryOut,
+    CategoryWeightCount,
     CentreOut,
+    CityAnalytics,
     CollectionRequestOut,
     DashboardStats,
+    InventoryStatusCount,
     PartnerOut,
+    RequestStatusCount,
     SettingOut,
     SettingUpdate,
+    TrendDataPoint,
     UserOut,
+    UserRoleCount,
 )
 from app.utils import to_request_out
 
@@ -56,6 +65,160 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_admin)
         active_requests=active, completed_requests=completed, total_weight_kg=round(total_weight, 2),
         total_revenue=round(revenue, 2),
     )
+
+
+@router.get("/analytics", response_model=AdminAnalyticsOut)
+def analytics(db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    # 1. Request status distribution
+    statuses = ["PENDING", "QUOTED", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP", "AT_CENTRE", "COMPLETED", "REJECTED", "CANCELLED"]
+    status_counts_db = dict(
+        db.query(CollectionRequest.status, func.count(CollectionRequest.id))
+        .group_by(CollectionRequest.status)
+        .all()
+    )
+    status_dist = [
+        RequestStatusCount(status=st, count=status_counts_db.get(st, 0))
+        for st in statuses
+    ]
+
+    # 2. Collection & Revenue Trends
+    all_requests = (
+        db.query(CollectionRequest)
+        .options(
+            joinedload(CollectionRequest.items),
+            joinedload(CollectionRequest.quotation)
+        )
+        .order_by(CollectionRequest.created_at.asc())
+        .all()
+    )
+
+    trends_map = {}
+    for r in all_requests:
+        date_str = r.created_at.strftime("%Y-%m-%d") if r.created_at else "Unknown"
+        if date_str not in trends_map:
+            trends_map[date_str] = {"requests": 0, "weight_kg": 0.0, "revenue": 0.0}
+        
+        trends_map[date_str]["requests"] += 1
+        
+        req_weight = sum((item.actual_weight_kg or item.estimated_weight_kg or 0.0) for item in r.items)
+        trends_map[date_str]["weight_kg"] += req_weight
+
+        if r.quotation and r.status in ("COMPLETED", "AT_CENTRE", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP"):
+            trends_map[date_str]["revenue"] += (r.quotation.handling_charge + r.quotation.pickup_charge)
+
+    trends_list = [
+        TrendDataPoint(
+            date=d,
+            requests=data["requests"],
+            weight_kg=round(data["weight_kg"], 2),
+            revenue=round(data["revenue"], 2)
+        )
+        for d, data in sorted(trends_map.items())
+    ]
+
+    # 3. Category Breakdown
+    cat_items = (
+        db.query(
+            Category.name,
+            func.sum(func.coalesce(RequestItem.actual_weight_kg, RequestItem.estimated_weight_kg, 0.0)),
+            func.sum(RequestItem.quantity)
+        )
+        .join(RequestItem, Category.id == RequestItem.category_id)
+        .group_by(Category.name)
+        .all()
+    )
+    cat_breakdown = [
+        CategoryWeightCount(
+            category_name=c_name,
+            weight_kg=round(w or 0.0, 2),
+            item_count=int(q or 0)
+        )
+        for c_name, w, q in cat_items
+    ]
+
+    # 4. City Breakdown
+    cities = db.query(Address.city).distinct().all()
+    city_names = set([c[0] for c in cities if c[0]])
+    centre_cities = db.query(CentreProfile.city).distinct().all()
+    partner_cities = db.query(PartnerProfile.city).distinct().all()
+    for c in centre_cities + partner_cities:
+        if c[0]:
+            city_names.add(c[0])
+
+    city_analytics_list = []
+    for city_name in sorted(city_names):
+        req_count = (
+            db.query(CollectionRequest)
+            .join(Address, CollectionRequest.address_id == Address.id)
+            .filter(Address.city == city_name)
+            .count()
+        )
+        
+        reqs_in_city = (
+            db.query(CollectionRequest)
+            .join(Address, CollectionRequest.address_id == Address.id)
+            .options(joinedload(CollectionRequest.items))
+            .filter(Address.city == city_name)
+            .all()
+        )
+        city_weight = sum(
+            (item.actual_weight_kg or item.estimated_weight_kg or 0.0)
+            for r in reqs_in_city for item in r.items
+        )
+
+        partners_count = db.query(PartnerProfile).filter(PartnerProfile.city == city_name).count()
+        centres_count = db.query(CentreProfile).filter(CentreProfile.city == city_name).count()
+
+        city_analytics_list.append(
+            CityAnalytics(
+                city=city_name,
+                requests=req_count,
+                weight_kg=round(city_weight, 2),
+                partners=partners_count,
+                centres=centres_count
+            )
+        )
+
+    # 5. User Role Distribution
+    user_roles_db = (
+        db.query(User.role, func.count(User.id))
+        .group_by(User.role)
+        .all()
+    )
+    user_roles = [
+        UserRoleCount(role=role, count=count)
+        for role, count in user_roles_db
+    ]
+
+    # 6. Inventory Status Breakdown
+    inventory_db = (
+        db.query(
+            InventoryItem.status,
+            func.sum(InventoryItem.weight_kg),
+            func.count(InventoryItem.id)
+        )
+        .group_by(InventoryItem.status)
+        .all()
+    )
+    inventory_breakdown = [
+        InventoryStatusCount(
+            status=status,
+            weight_kg=round(w or 0.0, 2),
+            count=cnt
+        )
+        for status, w, cnt in inventory_db
+    ]
+
+    return AdminAnalyticsOut(
+        request_status_distribution=status_dist,
+        collection_revenue_trends=trends_list,
+        category_breakdown=cat_breakdown,
+        city_breakdown=city_analytics_list,
+        user_role_distribution=user_roles,
+        inventory_status_breakdown=inventory_breakdown,
+    )
+
+
 
 
 @router.get("/users", response_model=list[UserOut])
