@@ -34,12 +34,12 @@ export function StatTile({ label, value, accent = "text-ink", suffix = "" }) {
   );
 }
 
-export function Modal({ open, onClose, title, children, footer }) {
+export function Modal({ open, onClose, title, children, footer, className = "max-w-md" }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-ink/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md animate-rise rounded bg-white shadow-stamp">
+      <div className={`relative z-10 w-full animate-rise rounded bg-white shadow-stamp ${className}`}>
         <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
           <h3 className="text-base font-semibold text-ink">{title}</h3>
           <button onClick={onClose} className="text-inkfaint hover:text-ink" aria-label="Close">

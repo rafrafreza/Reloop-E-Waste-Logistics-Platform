@@ -79,7 +79,7 @@ export default function PartnerRequestDetail() {
               {request.address.lat && request.address.lng && (
                 <>
                   <MapViewer lat={request.address.lat} lng={request.address.lng} />
-                  {request.status === "ASSIGNED" && (
+                  {["ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP"].includes(request.status) && (
                     <a 
                       href={`https://www.google.com/maps/dir/?api=1&destination=${request.address.lat},${request.address.lng}`} 
                       target="_blank" 
@@ -115,6 +115,12 @@ export default function PartnerRequestDetail() {
         </div>
 
         <div className="ticket-divider my-4" />
+
+        {request.status === "ACCEPTED" && (
+          <button disabled={acting} onClick={() => act(() => partnerApi.acceptRequest(id), "Accept this request and begin the assignment?")} className="btn-circuit w-full bg-circuit text-white hover:bg-circuitdark py-3 rounded font-medium shadow-sm">
+            Accept Assignment
+          </button>
+        )}
 
         {request.status === "ASSIGNED" && (
           <button disabled={acting} onClick={() => act(() => partnerApi.startPickup(id))} className="btn-primary w-full">

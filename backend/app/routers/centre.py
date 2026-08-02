@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_role
@@ -8,6 +9,7 @@ from app.database import get_db
 from app.models import (
     Address,
     Assignment,
+    Category,
     CentreProfile,
     CollectionRequest,
     InventoryItem,
@@ -17,8 +19,12 @@ from app.models import (
     User,
 )
 from app.schemas import (
-    AssignPartnerRequest,
     CapacityStats,
+    CentreAnalyticsOut,
+    CentreCategoryWeight,
+    CentreInventoryStatus,
+    CentrePartnerStatus,
+    CentreTrendPoint,
     CollectionRequestOut,
     DashboardStats,
     InventoryDispatchRequest,
@@ -129,60 +135,6 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
     db.commit()
     return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
 
-
-@router.get("/partners", response_model=list[PartnerOut])
-def list_partners(db: Session = Depends(get_db), user: User = Depends(require_centre)):
-    centre = _get_my_centre(db, user)
-    partners = (
-        db.query(PartnerProfile)
-        .join(User, PartnerProfile.user_id == User.id)
-        .filter(PartnerProfile.city == centre.city, User.is_active == True)  # noqa: E712
-        .all()
-    )
-    out = []
-    for p in partners:
-        out.append(PartnerOut(
-            id=p.id, user_id=p.user_id, full_name=p.user.full_name, phone=p.user.phone,
-            vehicle_number=p.vehicle_number, city=p.city, status=p.status,
-            avg_rating=p.avg_rating, rating_count=p.rating_count,
-        ))
-    return out
-
-
-@router.post("/requests/{request_id}/assign", response_model=CollectionRequestOut)
-def assign_partner(request_id: int, payload: AssignPartnerRequest, db: Session = Depends(get_db), user: User = Depends(require_centre)):
-    centre = _get_my_centre(db, user)
-    partner_user_id = payload.partner_user_id
-    req = _request_query(db).filter(CollectionRequest.id == request_id).first()
-    if not req or req.centre_id != centre.id:
-        raise HTTPException(status_code=404, detail="Request not found")
-    if req.status != "ACCEPTED":
-        raise HTTPException(status_code=400, detail="Request must be accepted by the consumer before assigning a partner")
-
-    partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == partner_user_id).first()
-    if not partner_profile or partner_profile.city != centre.city:
-        raise HTTPException(status_code=400, detail="Invalid partner for this centre's city")
-    if partner_profile.status != "AVAILABLE":
-        raise HTTPException(status_code=400, detail="This partner is not currently available")
-
-    from app.utils import generate_otp
-
-    otp = generate_otp()
-    payout = get_setting_float(db, "partner_pickup_fee", 40.0)
-    db.add(Assignment(request_id=req.id, partner_id=partner_user_id, payout_amount=round(payout, 2)))
-    req.status = "ASSIGNED"
-    req.pickup_otp = otp
-    partner_profile.status = "BUSY"
-    log_status(db, req.id, "ASSIGNED", "Assigned to pickup partner")
-    notify(db, partner_user_id, "New pickup assignment",
-           f"You have been assigned to pickup request #{req.id}. You'll earn Rs.{payout:.2f} for this job.",
-           link=f"/partner/requests/{req.id}")
-    notify(db, req.consumer_id, "Pickup partner assigned",
-           f"A pickup partner has been assigned to request #{req.id}. Your handover OTP is {otp}.",
-           link=f"/consumer/requests/{req.id}")
-
-    db.commit()
-    return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
 
 
 @router.post("/requests/{request_id}/complete", response_model=CollectionRequestOut)
@@ -325,3 +277,117 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_centre
         total_weight_kg=round(total_weight, 2),
         total_revenue=round(revenue, 2),
     )
+
+
+@router.get("/analytics", response_model=CentreAnalyticsOut)
+def analytics(db: Session = Depends(get_db), user: User = Depends(require_centre)):
+    centre = _get_my_centre(db, user)
+
+    # 1. Inventory Status Breakdown
+    inventory_statuses = ["IN_STORAGE", "DISPATCHED", "RECYCLED"]
+    inv_items = db.query(InventoryItem).filter(InventoryItem.centre_id == centre.id).all()
+    inv_map = {st: {"weight": 0.0, "count": 0} for st in inventory_statuses}
+    for item in inv_items:
+        st = item.status if item.status in inv_map else "IN_STORAGE"
+        inv_map[st]["weight"] += item.weight_kg
+        inv_map[st]["count"] += 1
+
+    inv_breakdown = [
+        CentreInventoryStatus(
+            status=st,
+            weight_kg=round(inv_map[st]["weight"], 2),
+            count=inv_map[st]["count"]
+        )
+        for st in inventory_statuses
+    ]
+
+    # 2. Category Breakdown for Centre's requests / inventory
+    cat_items = (
+        db.query(
+            Category.name,
+            func.sum(func.coalesce(RequestItem.actual_weight_kg, RequestItem.estimated_weight_kg, 0.0)),
+            func.sum(RequestItem.quantity)
+        )
+        .join(RequestItem, Category.id == RequestItem.category_id)
+        .join(CollectionRequest, RequestItem.request_id == CollectionRequest.id)
+        .filter(CollectionRequest.centre_id == centre.id)
+        .group_by(Category.name)
+        .all()
+    )
+
+    if not cat_items:
+        all_cats = db.query(Category).all()
+        cat_breakdown = [
+            CentreCategoryWeight(category_name=c.name, weight_kg=0.0, item_count=0)
+            for c in all_cats
+        ]
+    else:
+        cat_breakdown = [
+            CentreCategoryWeight(
+                category_name=c_name,
+                weight_kg=round(w or 0.0, 2),
+                item_count=int(q or 0)
+            )
+            for c_name, w, q in cat_items
+        ]
+
+    # 3. Processing Trends (Time-series)
+    centre_requests = (
+        db.query(CollectionRequest)
+        .options(
+            joinedload(CollectionRequest.items),
+            joinedload(CollectionRequest.quotation)
+        )
+        .filter(CollectionRequest.centre_id == centre.id)
+        .order_by(CollectionRequest.created_at.asc())
+        .all()
+    )
+
+    trends_map = {}
+    for r in centre_requests:
+        date_str = r.created_at.strftime("%Y-%m-%d") if r.created_at else "Unknown"
+        if date_str not in trends_map:
+            trends_map[date_str] = {"requests": 0, "weight_kg": 0.0, "revenue": 0.0}
+
+        trends_map[date_str]["requests"] += 1
+        req_weight = sum((item.actual_weight_kg or item.estimated_weight_kg or 0.0) for item in r.items)
+        trends_map[date_str]["weight_kg"] += req_weight
+
+        if r.quotation and r.status in ("COMPLETED", "AT_CENTRE", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP"):
+            trends_map[date_str]["revenue"] += (r.quotation.handling_charge + r.quotation.pickup_charge)
+
+    trends_list = [
+        CentreTrendPoint(
+            date=d,
+            requests=data["requests"],
+            weight_kg=round(data["weight_kg"], 2),
+            revenue=round(data["revenue"], 2)
+        )
+        for d, data in sorted(trends_map.items())
+    ]
+
+    # 4. Partner Status Distribution in centre's city
+    partner_statuses = ["AVAILABLE", "BUSY", "INACTIVE"]
+    partners = (
+        db.query(PartnerProfile)
+        .join(User, PartnerProfile.user_id == User.id)
+        .filter(PartnerProfile.city == centre.city)
+        .all()
+    )
+    partner_map = {st: 0 for st in partner_statuses}
+    for p in partners:
+        st = p.status if p.status in partner_map else "AVAILABLE"
+        partner_map[st] += 1
+
+    partner_dist = [
+        CentrePartnerStatus(status=st, count=partner_map[st])
+        for st in partner_statuses
+    ]
+
+    return CentreAnalyticsOut(
+        inventory_status_breakdown=inv_breakdown,
+        category_breakdown=cat_breakdown,
+        processing_trends=trends_list,
+        partner_status_distribution=partner_dist
+    )
+

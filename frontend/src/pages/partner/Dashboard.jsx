@@ -16,6 +16,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [active, setActive] = useState(null);
+  const [availableRequests, setAvailableRequests] = useState(null);
   const [earnings, setEarnings] = useState(null);
   const [availability, setAvailability] = useState(null);
   const [toggling, setToggling] = useState(false);
@@ -26,6 +27,7 @@ export default function Dashboard() {
   useEffect(() => {
     partnerApi.dashboard().then((res) => setStats(res.data));
     partnerApi.listRequests("active").then((res) => setActive(res.data));
+    partnerApi.getAvailableRequests().then((res) => setAvailableRequests(res.data));
     partnerApi.earnings().then((res) => setEarnings(res.data));
     loadAvailability();
   }, []);
@@ -44,7 +46,7 @@ export default function Dashboard() {
     }
   };
 
-  if (!stats || !active || !earnings || !availability) return <PageLoader />;
+  if (!stats || !active || !earnings || !availability || !availableRequests) return <PageLoader />;
 
   const meta = STATUS_META[availability] || STATUS_META.OFFLINE;
 
@@ -81,6 +83,19 @@ export default function Dashboard() {
       <Link to="/partner/earnings" className="mt-3 inline-block text-sm text-circuit hover:underline">
         View earnings & payout history →
       </Link>
+
+      {availability === "AVAILABLE" && availableRequests.length > 0 && (
+        <>
+          <div className="mt-8 flex items-center justify-between">
+            <h2 className="font-medium text-circuit">Available to Accept</h2>
+          </div>
+          <div className="mt-4 space-y-4">
+            {availableRequests.map((r) => (
+              <RequestCard key={r.id} request={r} basePath="/partner/requests" />
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="font-medium text-ink">Active assignments</h2>

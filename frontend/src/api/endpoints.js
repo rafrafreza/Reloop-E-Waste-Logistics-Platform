@@ -80,20 +80,21 @@ export const centreApi = {
   listRequests: (scope) => client.get("/api/centre/requests", { params: { scope } }),
   getRequest: (id) => client.get(`/api/centre/requests/${id}`),
   quote: (id, payload) => client.post(`/api/centre/requests/${id}/quote`, payload),
-  listPartners: () => client.get("/api/centre/partners"),
-  assignPartner: (id, partnerUserId) => client.post(`/api/centre/requests/${id}/assign`, { partner_user_id: partnerUserId }),
   completeRequest: (id) => client.post(`/api/centre/requests/${id}/complete`),
   inventory: (status) => client.get("/api/centre/inventory", { params: status ? { status } : {} }),
   dispatchInventory: (itemIds, recyclerName) => client.post("/api/centre/inventory/dispatch", { item_ids: itemIds, recycler_name: recyclerName }),
   recycleInventory: (itemIds) => client.post("/api/centre/inventory/recycle", { item_ids: itemIds }),
   capacity: () => client.get("/api/centre/capacity"),
   dashboard: () => client.get("/api/centre/dashboard"),
+  analytics: () => client.get("/api/centre/analytics"),
 };
 
 // ---------------------------------------------------------------------------
 // Partner
 // ---------------------------------------------------------------------------
 export const partnerApi = {
+  getAvailableRequests: () => client.get("/api/partner/available-requests"),
+  acceptRequest: (id) => client.post(`/api/partner/requests/${id}/accept`),
   listRequests: (scope) => client.get("/api/partner/requests", { params: { scope } }),
   getRequest: (id) => client.get(`/api/partner/requests/${id}`),
   startPickup: (id) => client.post(`/api/partner/requests/${id}/start`),
@@ -109,6 +110,7 @@ export const partnerApi = {
 // ---------------------------------------------------------------------------
 export const adminApi = {
   dashboard: () => client.get("/api/admin/dashboard"),
+  analytics: () => client.get("/api/admin/analytics"),
   listUsers: (role) => client.get("/api/admin/users", { params: role ? { role } : {} }),
   toggleActive: (id) => client.patch(`/api/admin/users/${id}/toggle-active`),
   listCategories: () => client.get("/api/admin/categories"),

@@ -14,18 +14,15 @@ export default function CentreRequestDetail() {
   const { id } = useParams();
   const defaults = useDefaultCharges();
   const [request, setRequest] = useState(null);
-  const [partners, setPartners] = useState(null);
   const [error, setError] = useState("");
   const [acting, setActing] = useState(false);
   const [handling, setHandling] = useState(defaults.handling);
   const [pickup, setPickup] = useState(defaults.pickup);
-  const [selectedPartner, setSelectedPartner] = useState("");
 
   const load = () => centreApi.getRequest(id).then((res) => setRequest(res.data));
 
   useEffect(() => {
     load();
-    centreApi.listPartners().then((res) => setPartners(res.data));
   }, [id]);
 
   // Sync the quote form defaults once the admin-configured charges load
@@ -35,7 +32,7 @@ export default function CentreRequestDetail() {
     setPickup(defaults.pickup);
   }, [defaults.handling, defaults.pickup]);
 
-  if (!request || !partners) return <PageLoader />;
+  if (!request) return <PageLoader />;
 
   const act = async (fn, confirmMsg) => {
     if (confirmMsg && !confirm(confirmMsg)) return;
@@ -55,14 +52,6 @@ export default function CentreRequestDetail() {
     e.preventDefault();
     act(() => centreApi.quote(id, { handling_charge: Number(handling), pickup_charge: Number(pickup) }));
   };
-
-  const submitAssign = (e) => {
-    e.preventDefault();
-    if (!selectedPartner) return;
-    act(() => centreApi.assignPartner(id, Number(selectedPartner)));
-  };
-
-  const availablePartners = partners.filter((p) => p.status === "AVAILABLE");
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -142,28 +131,9 @@ export default function CentreRequestDetail() {
         )}
 
         {request.status === "ACCEPTED" && (
-          <form onSubmit={submitAssign} className="space-y-3">
-            <p className="field-label">Assign a pickup partner</p>
-            {availablePartners.length === 0 ? (
-              <Banner kind="info">No available partners in your city right now.</Banner>
-            ) : (
-              <div className="space-y-2">
-                {availablePartners.map((p) => (
-                  <label key={p.id} className={`flex cursor-pointer items-center justify-between rounded border p-3 ${selectedPartner === String(p.user_id) ? "border-circuit bg-circuitlight" : "border-ink/10"}`}>
-                    <div>
-                      <p className="text-sm font-medium text-ink">{p.full_name}</p>
-                      <p className="text-xs text-inkfaint">{p.vehicle_number || "No vehicle on file"}</p>
-                      {p.rating_count > 0 && (
-                        <p className="text-xs text-amber">{"★".repeat(Math.round(p.avg_rating))}<span className="text-ink/15">{"★".repeat(5 - Math.round(p.avg_rating))}</span> <span className="text-inkfaint">({p.rating_count})</span></p>
-                      )}
-                    </div>
-                    <input type="radio" checked={selectedPartner === String(p.user_id)} onChange={() => setSelectedPartner(String(p.user_id))} />
-                  </label>
-                ))}
-              </div>
-            )}
-            <button type="submit" disabled={acting || !selectedPartner} className="btn-primary w-full">Assign partner</button>
-          </form>
+          <div className="mt-4 rounded border border-circuit/30 bg-circuitlight/50 p-4 text-center">
+            <p className="text-sm text-inkfaint">Waiting for a pickup partner in <span className="font-medium text-ink">{request.address.city}</span> to accept this request...</p>
+          </div>
         )}
 
         {request.status === "AT_CENTRE" && (
