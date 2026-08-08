@@ -14,13 +14,11 @@ services:
         sync: false
 
   # 2. React/Vite Frontend (Runs as a fast Static Site)
-  - type: web
+  - type: static_site
     name: ewaste-frontend
-    env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    plan: free
     envVars:
       - key: VITE_API_URL
         fromService:
