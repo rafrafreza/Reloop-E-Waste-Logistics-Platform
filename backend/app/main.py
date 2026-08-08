@@ -13,9 +13,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Build the list of allowed origins dynamically
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+
+# If Render provides a frontend URL, add it to the list!
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
