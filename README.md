@@ -102,9 +102,19 @@ ewaste/
 
 ## 4. Running it locally
 
+### Option A: Using Docker (Recommended)
+You don't need Python or Node.js installed. With Docker installed, simply run:
+```bash
+docker compose up --build -d
+```
+- API base: **http://localhost:8000**
+- Interactive API docs (Swagger UI): **http://localhost:8000/docs**
+- App: **http://localhost:5173**
+
+### Option B: Manual Setup
 You need **Python 3.10+** and **Node.js 18+** installed.
 
-### Backend (Terminal 1)
+#### Backend (Terminal 1)
 
 ```bash
 cd backend
@@ -129,7 +139,7 @@ the terminal.
 - API base: **http://localhost:8000**
 - Interactive API docs (Swagger UI): **http://localhost:8000/docs**
 
-### Frontend (Terminal 2)
+#### Frontend (Terminal 2)
 
 ```bash
 cd frontend
@@ -141,6 +151,16 @@ npm run dev
 
 Open the app in your browser, and sign in with one of the demo accounts
 below (or use the quick-fill buttons on the login page).
+
+---
+
+## 4.5 Deployment (Render)
+
+This project includes a `render.yaml` Blueprint for instant, one-click deployments to [Render.com](https://render.com/). 
+When you connect your GitHub repository to Render as a Blueprint, it will automatically:
+1. Deploy the Backend as a **Docker Web Service**.
+2. Deploy the Frontend as a free, ultra-fast **Static Site**.
+3. Link the frontend to the backend's new public URL via environment variables.
 
 ---
 
@@ -262,7 +282,6 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   served statically at `/uploads/...`. This is shown to the pickup partner
   on the request detail page so they can judge what vehicle a job needs.
 - **Mobile navigation**: the four role dashboards (Consumer, Partner,
-- **Mobile navigation**: the four role dashboards (Consumer, Partner,
   Centre, Admin) use a fixed sidebar on desktop and a bottom bar with a
   hamburger menu on mobile (`md:` breakpoint and below) — tap **Menu** to
   open the full navigation drawer. The public marketing site keeps its own
@@ -270,10 +289,6 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
 - **AI Assistant**: A custom AI Chatbot powered by `langchain-google-genai` uses a custom `knowledge_base.md` system prompt to help users with e-waste queries. The chat interface is implemented as a sliding `AIChatDrawer.jsx` component.
 - **Search & Pagination**: All heavy data tables (e.g., Active Requests, Users, Assignments) utilize a reusable `PaginatedList.jsx` component for scalable browsing and live search filtering.
 - **UI Aesthetics**: The application features a sticky header with a premium glassmorphism (backdrop blur) effect.
-- **Revenue model is additive, not destructive**: platform commission and
-  partner payouts are tracked in new fields alongside the existing
-  material-value/handling/pickup math — the original consumer payout
-  formula is untouched, so this is safe to ignore if you don't need it.
 
 ## 9. Possible next versions
 
@@ -281,7 +296,6 @@ The codebase intentionally leaves room to grow without a rewrite:
 
 - Swap SQLite → PostgreSQL by changing `DATABASE_URL` in `database.py`.
 - Add Redis + Celery for async notification delivery / SMS-OTP.
-- Containerize with Docker Compose once the above are introduced.
 - Add real payment/escrow handling instead of the current settlement note.
 - Track approval history separately from active/inactive status, so an
   admin-deactivated account can be distinguished from one that was never

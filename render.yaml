@@ -1,0 +1,29 @@
+services:
+  # 1. FastAPI Backend (Runs via Docker)
+  - type: web
+    name: ewaste-backend
+    env: docker
+    rootDir: backend
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///./ewaste.db
+      - key: GOOGLE_API_KEY
+        sync: false
+
+  # 2. React/Vite Frontend (Runs as a fast Static Site)
+  - type: web
+    name: ewaste-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: ewaste-backend
+          envVarKey: RENDER_EXTERNAL_URL

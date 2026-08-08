@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ewaste_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      # Prevent local venv from overriding container's python environment
+      - /app/venv 
+      - /app/__pycache__
+    environment:
+      # Use SQLite for now. Can easily change to MySQL URL later!
+      - DATABASE_URL=sqlite:///./ewaste.db
+      - SECRET_KEY=your-super-secret-key-change-this
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ewaste_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      # Prevent local node_modules from overriding container's node_modules
+      - /app/node_modules 
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    restart: always
