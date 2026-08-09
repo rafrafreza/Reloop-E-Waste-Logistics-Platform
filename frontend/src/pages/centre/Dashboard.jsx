@@ -4,6 +4,7 @@ import { authApi, centreApi } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 import { PageLoader, EmptyState, StatTile } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import {
   ResponsiveContainer,
   PieChart,
@@ -52,6 +53,7 @@ const formatLabel = (str) =>
     : "";
 
 export default function Dashboard() {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -167,7 +169,7 @@ export default function Dashboard() {
       {/* GRAPH ROW 1: Inventory Disposition & E-Waste Categories */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Graph 1: Inventory Disposition */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">1. Facility Inventory Disposition</h2>
@@ -178,7 +180,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-56 sm:h-64 w-full">
             {activeInv.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No inventory records found
@@ -192,10 +194,10 @@ export default function Dashboard() {
                     nameKey="status"
                     cx="50%"
                     cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
+                    innerRadius={isMobile ? 35 : 55}
+                    outerRadius={isMobile ? 65 : 80}
                     paddingAngle={4}
-                    label={({ status, weight_kg }) => `${formatLabel(status)}: ${weight_kg}kg`}
+                    label={isMobile ? false : ({ status, weight_kg }) => `${formatLabel(status)}: ${weight_kg}kg`}
                   >
                     {activeInv.map((entry) => (
                       <Cell
@@ -232,7 +234,7 @@ export default function Dashboard() {
         </div>
 
         {/* Graph 2: Material Category Volume */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">2. E-Waste Volume by Category</h2>
@@ -243,7 +245,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-64 sm:h-80 w-full">
             {analytics.category_breakdown.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No category breakdown available
@@ -253,16 +255,16 @@ export default function Dashboard() {
                 <BarChart
                   layout="vertical"
                   data={analytics.category_breakdown}
-                  margin={{ top: 10, right: 30, left: 20, bottom: 10 }}
+                  margin={{ top: 10, right: isMobile ? 15 : 30, left: isMobile ? -10 : 20, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E7EAE2" />
-                  <XAxis type="number" stroke="#4B5B53" fontSize={11} unit="kg" />
+                  <XAxis type="number" stroke="#4B5B53" fontSize={isMobile ? 9 : 11} unit="kg" />
                   <YAxis
                     dataKey="category_name"
                     type="category"
                     stroke="#16221D"
-                    fontSize={11}
-                    width={120}
+                    fontSize={isMobile ? 9 : 11}
+                    width={isMobile ? 85 : 120}
                   />
                   <Tooltip formatter={(val) => [`${val} kg`, "Total Weight"]} />
                   <Bar
@@ -281,7 +283,7 @@ export default function Dashboard() {
       {/* GRAPH ROW 2: Intake & Revenue Trends + Logistics Partner Availability */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Graph 3: Daily Intake & Revenue Trends */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">3. Daily E-Waste Intake & Revenue</h2>
@@ -292,7 +294,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-72 w-full">
+          <div className="mt-4 h-64 sm:h-72 w-full">
             {analytics.processing_trends.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No processing trend data recorded
@@ -301,7 +303,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={analytics.processing_trends}
-                  margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
+                  margin={{ top: 10, right: isMobile ? 10 : 30, left: isMobile ? -20 : 10, bottom: 10 }}
                 >
                   <defs>
                     <linearGradient id="colorRevenueCentre" x1="0" y1="0" x2="0" y2="1">
@@ -314,17 +316,17 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7EAE2" />
-                  <XAxis dataKey="date" stroke="#4B5B53" fontSize={11} />
-                  <YAxis yAxisId="left" stroke="#2E6B4C" fontSize={11} unit="₹" />
+                  <XAxis dataKey="date" stroke="#4B5B53" fontSize={isMobile ? 9 : 11} />
+                  <YAxis yAxisId="left" stroke="#2E6B4C" fontSize={isMobile ? 9 : 11} unit="₹" />
                   <YAxis
                     yAxisId="right"
                     orientation="right"
                     stroke="#A6501C"
-                    fontSize={11}
+                    fontSize={isMobile ? 9 : 11}
                     unit="kg"
                   />
                   <Tooltip />
-                  <Legend verticalAlign="top" height={36} />
+                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: isMobile ? 10 : 12 }} />
                   <Area
                     yAxisId="left"
                     type="monotone"
@@ -350,7 +352,7 @@ export default function Dashboard() {
         </div>
 
         {/* Graph 4: Pickup Partner Fleet Availability */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">4. Logistics Partner Fleet Status</h2>
@@ -361,7 +363,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-56 sm:h-64 w-full">
             {activePartners.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No pickup partners found in this city
@@ -375,8 +377,8 @@ export default function Dashboard() {
                     nameKey="status"
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
-                    label={({ status, count }) => `${formatLabel(status)}: ${count}`}
+                    outerRadius={isMobile ? 65 : 80}
+                    label={isMobile ? false : ({ status, count }) => `${formatLabel(status)}: ${count}`}
                   >
                     {activePartners.map((entry) => (
                       <Cell

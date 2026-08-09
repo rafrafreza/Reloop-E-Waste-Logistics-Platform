@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { centreApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+import { formatDate } from "../../utils/date";
 
 const STATUS_STYLE = {
   IN_STORAGE: "text-slate bg-paperdim border-slate/30",

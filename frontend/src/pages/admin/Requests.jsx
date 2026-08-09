@@ -3,10 +3,7 @@ import { adminApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import StatusBadge from "../../components/ui/StatusBadge";
 import PaginatedList from "../../components/PaginatedList";
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+import { formatDate } from "../../utils/date";
 
 const STATUSES = ["", "PENDING", "QUOTED", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP", "AT_CENTRE", "COMPLETED", "CANCELLED", "REJECTED"];
 

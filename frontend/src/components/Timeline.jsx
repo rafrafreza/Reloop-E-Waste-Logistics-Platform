@@ -1,9 +1,5 @@
 import { statusMeta } from "../constants/status";
-
-function formatDateTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
+import { formatDateTime } from "../utils/date";
 
 export default function Timeline({ history }) {
   if (!history?.length) return null;

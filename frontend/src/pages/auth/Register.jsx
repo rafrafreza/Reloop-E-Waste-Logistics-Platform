@@ -52,10 +52,14 @@ export default function Register() {
     try {
       const payload = { ...form, role };
       const registeredUser = await register(payload);
-      if (!registeredUser.is_active) {
-        setPendingResult(registeredUser);
-      }
-      // If active, the effect above redirects once context updates.
+      navigate("/login", {
+        state: {
+          registered: true,
+          email: form.email,
+          pending: !registeredUser.is_active,
+        },
+        replace: true,
+      });
     } catch (err) {
       setError(apiErrorMessage(err, "Registration failed"));
     } finally {

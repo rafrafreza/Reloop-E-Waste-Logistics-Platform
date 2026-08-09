@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
 import { partnerApi } from "../../api/endpoints";
 import { PageLoader, EmptyState, StatTile } from "../../components/ui/Primitives";
+import { formatDate } from "../../utils/date";
 
 const PAYOUT_STYLE = {
   PENDING: "text-amber bg-amberlight border-amber/40",
   PAID: "text-circuit bg-circuitlight border-circuit/40",
 };
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 export default function Earnings() {
   const [earnings, setEarnings] = useState(null);

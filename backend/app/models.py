@@ -15,7 +15,7 @@ AT_CENTRE and its items are logged into the warehouse:
 """
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -32,7 +32,7 @@ from app.database import Base
 
 
 def now_utc() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def generate_referral_code() -> str:
