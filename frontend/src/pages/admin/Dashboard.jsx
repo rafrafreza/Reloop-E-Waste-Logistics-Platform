@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { adminApi } from "../../api/endpoints";
 import { PageLoader, StatTile } from "../../components/ui/Primitives";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import {
   ResponsiveContainer,
   PieChart,
@@ -51,6 +52,7 @@ const formatLabel = (str) =>
     : "";
 
 export default function Dashboard() {
+  const isMobile = useIsMobile();
   const [stats, setStats] = useState(null);
   const [openTickets, setOpenTickets] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -128,7 +130,7 @@ export default function Dashboard() {
       {/* GRAPH ROW 1: Request Status & Revenue Trends */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Graph 1: Request Status Breakdown */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">1. Request Lifecycle & Status</h2>
@@ -139,7 +141,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-56 sm:h-64 w-full">
             {activeStatusDist.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No active request data recorded
@@ -153,10 +155,10 @@ export default function Dashboard() {
                     nameKey="status"
                     cx="50%"
                     cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
+                    innerRadius={isMobile ? 35 : 55}
+                    outerRadius={isMobile ? 65 : 80}
                     paddingAngle={4}
-                    label={({ status, count }) => `${formatLabel(status)}: ${count}`}
+                    label={isMobile ? false : ({ status, count }) => `${formatLabel(status)}: ${count}`}
                   >
                     {activeStatusDist.map((entry) => (
                       <Cell
@@ -198,7 +200,7 @@ export default function Dashboard() {
         </div>
 
         {/* Graph 2: Collection & Revenue Trends */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">2. Collection & Revenue Trends</h2>
@@ -209,7 +211,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-80 w-full">
+          <div className="mt-4 h-64 sm:h-80 w-full">
             {analytics.collection_revenue_trends.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No time series data available
@@ -218,7 +220,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={analytics.collection_revenue_trends}
-                  margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
+                  margin={{ top: 10, right: isMobile ? 10 : 30, left: isMobile ? -20 : 10, bottom: 10 }}
                 >
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -231,17 +233,17 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7EAE2" />
-                  <XAxis dataKey="date" stroke="#4B5B53" fontSize={11} />
-                  <YAxis yAxisId="left" stroke="#2E6B4C" fontSize={11} unit="₹" />
+                  <XAxis dataKey="date" stroke="#4B5B53" fontSize={isMobile ? 9 : 11} />
+                  <YAxis yAxisId="left" stroke="#2E6B4C" fontSize={isMobile ? 9 : 11} unit="₹" />
                   <YAxis
                     yAxisId="right"
                     orientation="right"
                     stroke="#A6501C"
-                    fontSize={11}
+                    fontSize={isMobile ? 9 : 11}
                     unit="kg"
                   />
                   <Tooltip />
-                  <Legend verticalAlign="top" height={36} />
+                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: isMobile ? 10 : 12 }} />
                   <Area
                     yAxisId="left"
                     type="monotone"
@@ -270,7 +272,7 @@ export default function Dashboard() {
       {/* GRAPH ROW 2: Category Breakdown & City Performance */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Graph 3: E-Waste Category Breakdown */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">3. E-Waste Volume by Category</h2>
@@ -281,7 +283,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-80 w-full">
+          <div className="mt-4 h-64 sm:h-80 w-full">
             {analytics.category_breakdown.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No category items recorded
@@ -291,16 +293,16 @@ export default function Dashboard() {
                 <BarChart
                   layout="vertical"
                   data={analytics.category_breakdown}
-                  margin={{ top: 10, right: 30, left: 20, bottom: 10 }}
+                  margin={{ top: 10, right: isMobile ? 15 : 30, left: isMobile ? -10 : 20, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E7EAE2" />
-                  <XAxis type="number" stroke="#4B5B53" fontSize={11} unit="kg" />
+                  <XAxis type="number" stroke="#4B5B53" fontSize={isMobile ? 9 : 11} unit="kg" />
                   <YAxis
                     dataKey="category_name"
                     type="category"
                     stroke="#16221D"
-                    fontSize={11}
-                    width={125}
+                    fontSize={isMobile ? 9 : 11}
+                    width={isMobile ? 85 : 125}
                   />
                   <Tooltip formatter={(val) => [`${val} kg`, "Weight"]} />
                   <Bar
@@ -316,7 +318,7 @@ export default function Dashboard() {
         </div>
 
         {/* Graph 4: City-Wise Performance */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">4. City-Wise Logistics & Coverage</h2>
@@ -327,7 +329,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-80 w-full">
+          <div className="mt-4 h-64 sm:h-80 w-full">
             {analytics.city_breakdown.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No city data available
@@ -336,13 +338,13 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={analytics.city_breakdown}
-                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                  margin={{ top: 10, right: isMobile ? 10 : 30, left: isMobile ? -20 : 10, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7EAE2" />
-                  <XAxis dataKey="city" stroke="#4B5B53" fontSize={11} />
-                  <YAxis stroke="#4B5B53" fontSize={11} />
+                  <XAxis dataKey="city" stroke="#4B5B53" fontSize={isMobile ? 9 : 11} />
+                  <YAxis stroke="#4B5B53" fontSize={isMobile ? 9 : 11} />
                   <Tooltip />
-                  <Legend verticalAlign="top" height={36} />
+                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: isMobile ? 10 : 12 }} />
                   <Bar dataKey="requests" name="Total Requests" fill="#2E6B4C" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="weight_kg" name="Weight (kg)" fill="#A6501C" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="partners" name="Partners" fill="#C1791F" radius={[4, 4, 0, 0]} />
@@ -357,7 +359,7 @@ export default function Dashboard() {
       {/* GRAPH ROW 3: User Role Distribution & Inventory Disposition */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Graph 5: User Role Distribution */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">5. User Role Distribution</h2>
@@ -368,7 +370,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-56 sm:h-64 w-full">
             {activeUserRoles.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No user data available
@@ -382,8 +384,8 @@ export default function Dashboard() {
                     nameKey="role"
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
-                    label={({ role, count }) => `${formatLabel(role)}: ${count}`}
+                    outerRadius={isMobile ? 65 : 80}
+                    label={isMobile ? false : ({ role, count }) => `${formatLabel(role)}: ${count}`}
                   >
                     {activeUserRoles.map((entry, index) => (
                       <Cell
@@ -418,7 +420,7 @@ export default function Dashboard() {
         </div>
 
         {/* Graph 6: Inventory Status Disposition */}
-        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-5 shadow-card">
+        <div className="flex flex-col rounded-lg border border-paperdim bg-white p-3.5 sm:p-5 shadow-card">
           <div className="flex items-center justify-between border-b border-paperdim pb-3">
             <div>
               <h2 className="text-base font-semibold text-ink">6. Recycling Inventory Disposition</h2>
@@ -429,7 +431,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-56 sm:h-64 w-full">
             {formattedInventory.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-inkfaint">
                 No inventory items recorded
@@ -438,11 +440,11 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={formattedInventory}
-                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                  margin={{ top: 10, right: isMobile ? 10 : 30, left: isMobile ? -20 : 10, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7EAE2" />
-                  <XAxis dataKey="statusLabel" stroke="#4B5B53" fontSize={11} />
-                  <YAxis stroke="#4B5B53" fontSize={11} unit="kg" />
+                  <XAxis dataKey="statusLabel" stroke="#4B5B53" fontSize={isMobile ? 9 : 11} />
+                  <YAxis stroke="#4B5B53" fontSize={isMobile ? 9 : 11} unit="kg" />
                   <Tooltip formatter={(val) => [`${val} kg`, "Total Weight"]} />
                   <Bar dataKey="weight_kg" name="Weight (kg)" fill="#2E6B4C" radius={[4, 4, 0, 0]}>
                     {formattedInventory.map((entry, index) => (

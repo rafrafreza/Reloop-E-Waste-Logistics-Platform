@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { adminApi } from "../../api/endpoints";
 import { PageLoader, StatTile } from "../../components/ui/Primitives";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 const CHART_COLORS = {
   material: "#7C8B90",
@@ -23,6 +24,7 @@ function CurrencyTooltip({ active, payload, label }) {
 }
 
 export default function Revenue() {
+  const isMobile = useIsMobile();
   const [revenue, setRevenue] = useState(null);
 
   useEffect(() => {
@@ -64,16 +66,16 @@ export default function Revenue() {
       </p>
 
       {monthData.length > 0 && (
-        <div className="ticket mt-8 p-6">
+        <div className="ticket mt-8 p-3.5 sm:p-6">
           <p className="field-label">Revenue by month</p>
-          <div className="mt-4 h-72 w-full">
+          <div className="mt-4 h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthData}>
+              <BarChart data={monthData} margin={{ top: 10, right: isMobile ? 5 : 30, left: isMobile ? -20 : 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(22,34,29,0.08)" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#4B5B53" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#4B5B53" }} />
+                <XAxis dataKey="label" tick={{ fontSize: isMobile ? 9 : 11, fill: "#4B5B53" }} />
+                <YAxis tick={{ fontSize: isMobile ? 9 : 11, fill: "#4B5B53" }} />
                 <Tooltip content={<CurrencyTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: isMobile ? 10 : 12 }} />
                 <Bar dataKey="Material value" fill={CHART_COLORS.material} radius={[2, 2, 0, 0]} />
                 <Bar dataKey="Handling revenue" fill={CHART_COLORS.handling} radius={[2, 2, 0, 0]} />
                 <Bar dataKey="Partner payouts" fill={CHART_COLORS.payouts} radius={[2, 2, 0, 0]} />
@@ -85,16 +87,16 @@ export default function Revenue() {
       )}
 
       {cityData.length > 0 && (
-        <div className="ticket mt-6 p-6">
+        <div className="ticket mt-6 p-3.5 sm:p-6">
           <p className="field-label">Revenue by city</p>
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-60 sm:h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={cityData} layout="vertical">
+              <BarChart data={cityData} layout="vertical" margin={{ top: 10, right: isMobile ? 5 : 30, left: isMobile ? -15 : 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(22,34,29,0.08)" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5B53" }} />
-                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: "#4B5B53" }} width={80} />
+                <XAxis type="number" tick={{ fontSize: isMobile ? 9 : 11, fill: "#4B5B53" }} />
+                <YAxis dataKey="label" type="category" tick={{ fontSize: isMobile ? 9 : 11, fill: "#4B5B53" }} width={isMobile ? 65 : 80} />
                 <Tooltip content={<CurrencyTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: isMobile ? 10 : 12 }} />
                 <Bar dataKey="Material value" fill={CHART_COLORS.material} radius={[0, 2, 2, 0]} />
                 <Bar dataKey="Handling revenue" fill={CHART_COLORS.handling} radius={[0, 2, 2, 0]} />
                 <Bar dataKey="Partner payouts" fill={CHART_COLORS.payouts} radius={[0, 2, 2, 0]} />

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
@@ -201,7 +201,7 @@ def dispatch_inventory(payload: InventoryDispatchRequest, db: Session = Depends(
     )
     if not items:
         raise HTTPException(status_code=404, detail="No matching inventory items found")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for item in items:
         if item.status != "IN_STORAGE":
             raise HTTPException(status_code=400, detail=f"Item #{item.id} is not in storage")
@@ -222,7 +222,7 @@ def recycle_inventory(payload: InventoryRecycleRequest, db: Session = Depends(ge
     )
     if not items:
         raise HTTPException(status_code=404, detail="No matching inventory items found")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for item in items:
         if item.status != "DISPATCHED":
             raise HTTPException(status_code=400, detail=f"Item #{item.id} must be dispatched before it can be marked recycled")

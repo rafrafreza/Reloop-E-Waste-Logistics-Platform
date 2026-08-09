@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicLayout from "./components/layout/PublicLayout";
 import AppShell from "./components/layout/AppShell";
@@ -51,8 +52,9 @@ import AdminSupport from "./pages/admin/AdminSupport";
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
           {/* Public marketing site */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
@@ -147,6 +149,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
-    </BrowserRouter>
-  );
+    </ThemeProvider>
+  </BrowserRouter>
+);
 }

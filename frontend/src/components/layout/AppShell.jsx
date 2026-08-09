@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import NotificationBell from "../NotificationBell";
 import AIChatDrawer from "../AIChatDrawer";
 
@@ -101,6 +102,7 @@ function BrandMark({ small = false }) {
 
 export default function AppShell() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const items = NAV_ITEMS[user.role] || [];
@@ -158,16 +160,16 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
-        {/* Top header: brand top-left on mobile, role label top-left on
-            desktop, notification bell always top-right. */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
+        {/* Top header: brand top-left on mobile, role label top-left on desktop.
+            Desktop top-right has AI Chat, Theme toggle (sun/moon), NotificationBell. */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-ink/10 bg-white/90 backdrop-blur-md px-4 py-3 md:px-8">
           <div className="flex items-center gap-2 md:hidden">
             <BrandMark small />
             <span className="text-sm font-semibold text-ink">Reloop</span>
           </div>
           <p className="hidden field-label md:block">{ROLE_LABEL[user.role]}</p>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => setChatOpen(true)}
               className="flex items-center gap-2 rounded-full bg-circuitlight/40 px-3 py-1.5 text-sm font-medium text-circuit hover:bg-circuitlight transition-colors"
@@ -177,11 +179,52 @@ export default function AppShell() {
               </svg>
               <span className="hidden md:inline">AI Chat</span>
             </button>
+
+            {/* Desktop Theme Toggle Button (Between AI Chat and Notification Bell) */}
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label="Toggle theme"
+              className="hidden md:flex h-9 w-9 items-center justify-center rounded border border-ink/10 bg-white text-ink hover:border-ink/25 transition-colors"
+            >
+              {theme === "dark" ? (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              ) : (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
+
             <NotificationBell />
+
+            {/* Mobile Sign Out button (h-9 w-9) */}
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              aria-label="Sign out"
+              className="flex h-9 w-9 items-center justify-center rounded border border-ink/10 bg-white text-ink hover:border-brick/30 hover:bg-brick/5 hover:text-brick transition-colors md:hidden"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:py-8">
+        <main className="w-full min-w-0 max-w-full flex-1 px-4 pb-24 pt-6 md:px-8 md:py-8">
           <Outlet />
         </main>
       </div>
@@ -254,9 +297,35 @@ export default function AppShell() {
             </nav>
 
             <div className="border-t border-ink/10 p-3">
-              <div className="px-4 py-2">
-                <p className="text-sm font-medium text-ink">{user.full_name}</p>
-                <p className="field-label">{ROLE_LABEL[user.role]}</p>
+              <div className="flex items-center justify-between px-4 py-2">
+                <div>
+                  <p className="text-sm font-medium text-ink">{user.full_name}</p>
+                  <p className="field-label">{ROLE_LABEL[user.role]}</p>
+                </div>
+                <button
+                  onClick={toggleTheme}
+                  className="flex h-9 w-9 items-center justify-center rounded border border-ink/10 bg-white text-ink hover:border-ink/25 transition-colors"
+                  title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="5" />
+                      <line x1="12" y1="1" x2="12" y2="3" />
+                      <line x1="12" y1="21" x2="12" y2="23" />
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                      <line x1="1" y1="12" x2="3" y2="12" />
+                      <line x1="21" y1="12" x2="23" y2="12" />
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    </svg>
+                  ) : (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                  )}
+                </button>
               </div>
               <button onClick={handleLogout} className="btn-ghost w-full justify-start px-4">
                 <Icon name="settings" className="h-4 w-4" />
@@ -271,3 +340,4 @@ export default function AppShell() {
     </div>
   );
 }
+

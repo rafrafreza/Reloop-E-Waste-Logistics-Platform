@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { adminApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
+import { formatDateTime } from "../../utils/date";
 
 const STATUS_STYLE = {
   OPEN: "text-amber bg-amberlight border-amber/40",
@@ -11,10 +12,6 @@ const STATUS_STYLE = {
 };
 
 const FILTERS = ["", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
-
-function formatDateTime(iso) {
-  return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
 
 export default function AdminSupport() {
   const [tickets, setTickets] = useState(null);

@@ -2,12 +2,9 @@ import { useEffect, useState } from "react";
 import { adminApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import PaginatedList from "../../components/PaginatedList";
+import { formatDate } from "../../utils/date";
 
 const ROLES = ["", "CONSUMER", "PARTNER", "CENTRE", "ADMIN"];
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 export default function Users() {
   const [users, setUsers] = useState(null);
@@ -30,12 +27,12 @@ export default function Users() {
       <h1 className="text-xl font-semibold text-ink">Users</h1>
       <p className="mt-1 text-sm text-inkfaint">Every account on the platform.</p>
 
-      <div className="mt-5 flex gap-2">
+      <div className="mt-5 flex flex-wrap gap-2">
         {ROLES.map((r) => (
           <button
             key={r}
             onClick={() => setRoleFilter(r)}
-            className={`rounded px-3 py-1.5 font-mono text-xs uppercase tracking-wide ${
+            className={`shrink-0 rounded px-3 py-1.5 font-mono text-xs uppercase tracking-wide ${
               roleFilter === r ? "bg-ink text-white" : "bg-white text-inkfaint border border-ink/10"
             }`}
           >

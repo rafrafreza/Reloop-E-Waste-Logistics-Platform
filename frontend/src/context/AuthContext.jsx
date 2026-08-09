@@ -48,20 +48,10 @@ export function AuthProvider({ children }) {
     [applySession]
   );
 
-  const register = useCallback(
-    async (payload) => {
-      const res = await authApi.register(payload);
-      // Partner/Centre accounts are created inactive pending admin approval.
-      // Don't persist a session for them - any protected call would just be
-      // rejected by the backend, so the caller shows a "pending" message
-      // instead of navigating into the (inaccessible) dashboard.
-      if (res.data.user.is_active) {
-        applySession(res.data);
-      }
-      return res.data.user;
-    },
-    [applySession]
-  );
+  const register = useCallback(async (payload) => {
+    const res = await authApi.register(payload);
+    return res.data.user;
+  }, []);
 
   const updateUser = useCallback((patch) => {
     setUser((prev) => {

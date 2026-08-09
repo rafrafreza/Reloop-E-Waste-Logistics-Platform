@@ -88,3 +88,92 @@
     @apply bg-white border border-ink/10 rounded shadow-card;
   }
 }
+
+/* Dark Theme Overrides */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body,
+html.dark .bg-paper {
+  background-color: #0E1612 !important;
+  color: #E6EFEA !important;
+}
+
+html.dark .bg-white,
+html.dark .bg-white\/90 {
+  background-color: #15201B !important;
+  color: #E6EFEA !important;
+}
+
+html.dark .bg-paperdim {
+  background-color: #1A2822 !important;
+}
+
+html.dark .text-ink {
+  color: #E6EFEA !important;
+}
+
+html.dark .text-inkfaint {
+  color: #8CA095 !important;
+}
+
+html.dark .border-ink\/10,
+html.dark .border-ink\/15,
+html.dark .border-ink\/25 {
+  border-color: rgba(230, 239, 234, 0.12) !important;
+}
+
+html.dark .ticket,
+html.dark .card {
+  background-color: #15201B !important;
+  border-color: rgba(230, 239, 234, 0.12) !important;
+}
+
+html.dark .ticket::before,
+html.dark .ticket::after {
+  background-color: #0E1612 !important;
+}
+
+html.dark .input {
+  background-color: #1A2822 !important;
+  color: #E6EFEA !important;
+  border-color: rgba(230, 239, 234, 0.15) !important;
+}
+
+html.dark .input::placeholder {
+  color: #63776C !important;
+}
+
+html.dark .btn-secondary {
+  background-color: #15201B !important;
+  color: #E6EFEA !important;
+  border-color: rgba(230, 239, 234, 0.18) !important;
+}
+
+html.dark .btn-secondary:hover {
+  border-color: rgba(230, 239, 234, 0.35) !important;
+  background-color: #1A2822 !important;
+}
+
+html.dark .btn-ghost {
+  color: #8CA095 !important;
+}
+
+html.dark .btn-ghost:hover {
+  color: #E6EFEA !important;
+  background-color: rgba(230, 239, 234, 0.08) !important;
+}
+
+html.dark .bg-circuitlight {
+  background-color: #193D2C !important;
+}
+
+html.dark .bg-circuitlight\/40 {
+  background-color: rgba(25, 61, 44, 0.5) !important;
+}
+
+html.dark .text-circuitdark {
+  color: #A3E0BC !important;
+}
+

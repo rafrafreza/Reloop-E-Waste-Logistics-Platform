@@ -16,7 +16,7 @@ export default function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(location.state?.email || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -74,6 +74,13 @@ export default function Login() {
       ) : (
         <>
           <form onSubmit={handleSubmit} className="ticket mt-8 space-y-4 p-6">
+            {location.state?.registered && (
+              <Banner kind={location.state.pending ? "info" : "success"}>
+                {location.state.pending
+                  ? "Account created! Your account is pending admin approval before you can sign in."
+                  : "Account created successfully! Please sign in to continue."}
+              </Banner>
+            )}
             {error && <Banner kind="error">{error}</Banner>}
             <div>
               <label className="label">Email</label>

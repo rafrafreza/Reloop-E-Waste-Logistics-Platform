@@ -1,11 +1,6 @@
 import { Link } from "react-router-dom";
 import StatusBadge from "./ui/StatusBadge";
-
-function formatDate(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+import { formatDate } from "../utils/date";
 
 export default function RequestCard({ request, basePath, extra }) {
   const itemCount = request.items.reduce((sum, i) => sum + i.quantity, 0);

@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
-}
+import { formatDate } from "../../utils/date";
 
 export default function Certificate() {
   const { id } = useParams();
