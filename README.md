@@ -3,10 +3,11 @@
 A full-stack e-waste logistics marketplace: **consumers** schedule pickups,
 **segregation centres** quote and process them, **pickup partners** handle
 the physical handover, and an **admin** runs the whole operation — with
-ratings, payouts, revenue analytics, environmental impact tracking, and
-support ticketing on top of the core pickup pipeline.
+real-time UPI payouts (Cashfree), an AI chatbot (Gemini), interactive maps
+(Leaflet), ratings, revenue analytics, environmental impact tracking,
+dark mode, and support ticketing on top of the core pickup pipeline.
 
-Built with **React (Vite) + FastAPI + SQLite/SQLAlchemy**.
+Built with **React 19 (Vite 8) + FastAPI + SQLite/PostgreSQL + Cashfree Payouts**.
 
 ---
 
@@ -20,20 +21,24 @@ PENDING → QUOTED → ACCEPTED → ASSIGNED → OUT_FOR_PICKUP → PICKED_UP �
                                                                        earlier in the flow)
 ```
 
-1. **Consumer** picks an address, lists items by category (with optional
-   dimensions and photos), and submits a request.
+1. **Consumer** picks an address (with an interactive map picker), lists
+   items by category (with optional dimensions and photos), and submits a
+   request.
 2. **Centre** (matched by city) reviews the request and returns a quotation
    (material value − handling charge − pickup charge), which also snapshots
    a platform commission for revenue reporting.
-3. **Consumer** accepts or rejects the quotation.
-4. **Centre** assigns an available **pickup partner**, who earns a flat fee
-   for the job; a one-time handover OTP is generated.
+3. **Consumer** accepts or rejects the quotation. On acceptance, they choose
+   a payment method — **UPI** (with automatic Cashfree payout) or **Cash**.
+4. **Centre** assigns an available **pickup partner**, or the **partner
+   self-accepts** from a job marketplace of unassigned requests in their
+   city. A one-time handover OTP is generated.
 5. **Partner** starts the pickup, verifies the OTP at the doorstep, and
-   records the actual weight of each item.
+   records the actual weight of each item. An **automatic UPI payout** to
+   the consumer is triggered via Cashfree (if UPI was selected).
 6. **Partner** delivers to the centre — items are automatically logged into
    the centre's warehouse inventory.
-7. **Centre** marks the request complete — the partner's payout is settled
-   and the consumer earns reward points.
+7. **Centre** marks the request complete — the partner's pickup fee is
+   credited to their wallet and the consumer earns reward points.
 8. **Centre** later dispatches warehouse items to a named licensed recycler
    and marks them recycled, closing the chain of custody.
 9. **Consumer** can rate the partner and centre, and download a printable
@@ -41,70 +46,149 @@ PENDING → QUOTED → ACCEPTED → ASSIGNED → OUT_FOR_PICKUP → PICKED_UP �
 
 Every transition is notification-driven and recorded in a per-request status
 timeline. There's also a full **Admin console** (users, category pricing
-and CO2 estimates, platform settings, revenue analytics, audit log, support
-inbox, and cross-platform oversight).
+and CO₂ estimates, platform settings, revenue analytics, Cashfree payouts,
+partner wallet balances, audit log, support inbox, and cross-platform
+oversight).
 
 ---
 
 ## 2. Tech stack
 
 | Layer     | Tech                                                         |
-|-----------|---------------------------------------------------------------|
-| Frontend  | React 19 (Vite), React Router, Tailwind CSS, Axios, Recharts (analytics charts) |
-| Backend   | FastAPI, SQLAlchemy ORM, Pydantic v2, python-jose (JWT), passlib (bcrypt), LangChain, Google Generative AI |
-| Database  | SQLite (file-based, zero setup)                                |
-| Auth      | JWT bearer tokens, role-gated endpoints (Consumer/Partner/Centre/Admin) |
+|-----------|--------------------------------------------------------------|
+| Frontend  | React 19.2 (Vite 8), React Router 7, Tailwind CSS 3.4, Axios, Recharts, Leaflet + react-leaflet (maps), Lucide React (icons), date-fns |
+| Backend   | FastAPI 0.115, SQLAlchemy 2.0, Pydantic v2, PyJWT + python-jose, passlib (bcrypt), LangChain + langchain-google-genai (AI chatbot), Cashfree Payouts API |
+| Database  | SQLite (local dev, zero setup) · PostgreSQL on Render (production) |
+| Auth      | JWT bearer tokens, role-gated endpoints (Consumer / Partner / Centre / Admin) |
+| Payments  | Cashfree Payouts API (UPI transfers for consumer refunds & partner earnings) |
+| Maps      | Leaflet + OpenStreetMap tiles, Nominatim geocoding, Google Maps navigation deep-links |
+| Testing   | pytest (backend), oxlint (frontend linting) |
 
 ---
 
 ## 3. Project structure
 
 ```
-ewaste/
+├── docker-compose.yml          # Multi-service Docker dev environment
+├── render.yaml                 # Render.com Blueprint (one-click deploy)
 ├── backend/
+│   ├── Dockerfile
+│   ├── requirements.txt
 │   ├── app/
-│   │   ├── main.py          # FastAPI app, CORS, static /uploads mount
-│   │   ├── database.py      # SQLAlchemy engine/session
-│   │   ├── models.py        # All ORM models
-│   │   ├── schemas.py       # Pydantic request/response schemas
-│   │   ├── auth.py          # JWT + password hashing + role dependencies
-│   │   ├── utils.py         # OTP generation, notifications, serialization
-│   │   ├── seed.py          # Creates tables + demo data on first run
+│   │   ├── main.py             # FastAPI app, CORS, static /uploads mount
+│   │   ├── database.py         # SQLAlchemy engine/session
+│   │   ├── models.py           # 18 ORM models (User → Payout)
+│   │   ├── schemas.py          # Pydantic request/response schemas
+│   │   ├── auth.py             # JWT + password hashing + role dependencies
+│   │   ├── utils.py            # OTP generation, notifications, audit log
+│   │   ├── seed.py             # Creates tables + demo data on first run
+│   │   ├── cashfree.py         # Cashfree Payouts API client wrapper
+│   │   ├── cashfree_payout.py  # Consumer & partner UPI payout orchestration
+│   │   ├── knowledge_base.md   # RAG knowledge base for the AI chatbot
 │   │   └── routers/
-│   │       ├── auth.py      # register/login/me/profile/change-password
-│   │       ├── common.py    # categories, notifications, public settings
-│   │       ├── consumer.py  # addresses, requests, quote accept/reject
-│   │       ├── centre.py    # quoting, partner assignment, inventory
-│   │       ├── partner.py   # pickup workflow (start/OTP/deliver)
-│   │       ├── admin.py     # users, categories, settings, oversight
-│   │       └── uploads.py   # item photo upload (saved to ./uploads)
-│   ├── uploads/              # item photos (created at runtime, gitignored)
-│   └── requirements.txt
+│   │       ├── auth.py         # register/login/me/profile/change-password
+│   │       ├── common.py       # categories, notifications, public settings
+│   │       ├── consumer.py     # addresses, requests, quote accept/reject
+│   │       ├── centre.py       # quoting, partner assignment, inventory, analytics
+│   │       ├── partner.py      # pickup workflow (accept/start/OTP/deliver)
+│   │       ├── admin.py        # users, categories, settings, revenue, payouts
+│   │       ├── support.py      # support ticket creation and retrieval
+│   │       ├── chat.py         # AI chatbot (LangChain + Gemini)
+│   │       └── uploads.py      # item photo upload (saved to ./uploads)
+│   └── tests/
+│       ├── conftest.py         # pytest fixtures, test DB configuration
+│       ├── test_auth.py        # Auth endpoint tests
+│       ├── test_consumer.py    # Consumer endpoint tests
+│       ├── test_partner.py     # Partner endpoint tests
+│       ├── test_centre.py      # Centre endpoint tests
+│       ├── test_admin.py       # Admin endpoint tests
+│       └── test_common.py      # Common endpoint tests
 └── frontend/
-    ├── src/
-    │   ├── api/              # axios client + endpoint functions
-    │   ├── context/          # AuthContext (session state)
-    │   ├── hooks/             # useServiceCities, useDefaultCharges
-    │   ├── components/       # layout (incl. mobile bottom nav), UI kit
-    │   ├── constants/        # status labels/colors
-    │   └── pages/
-    │       ├── public/       # marketing site (home, pricing, FAQ, etc.)
-    │       ├── auth/         # login, register
-    │       ├── Profile.jsx   # shared profile page for every role
-    │       ├── consumer/     # dashboard, addresses, new request, requests
-    │       ├── partner/      # dashboard, assignments, pickup workflow
-    │       ├── centre/       # dashboard, incoming, active, inventory
-    │       └── admin/        # dashboard, users, categories, settings
-    └── package.json
+    ├── Dockerfile
+    ├── package.json
+    ├── tailwind.config.js
+    ├── vite.config.js
+    └── src/
+        ├── App.jsx              # Route definitions (45+ routes)
+        ├── main.jsx             # React entry point
+        ├── index.css            # Tailwind + custom styles
+        ├── api/
+        │   ├── client.js        # Axios instance + JWT interceptor
+        │   └── endpoints.js     # All API endpoint functions
+        ├── context/
+        │   ├── AuthContext.jsx   # Session state, login/logout, role routing
+        │   └── ThemeContext.jsx  # Dark/light mode toggle (localStorage)
+        ├── hooks/
+        │   ├── useServiceCities.js
+        │   ├── useDefaultCharges.js
+        │   └── useIsMobile.js   # Responsive breakpoint detection
+        ├── components/
+        │   ├── layout/
+        │   │   ├── AppShell.jsx      # Sidebar (desktop) + bottom nav (mobile)
+        │   │   └── PublicLayout.jsx  # Marketing site navbar/footer
+        │   ├── ui/
+        │   │   ├── Primitives.jsx    # Spinner, Modal, StatTile, EmptyState
+        │   │   ├── StatusBadge.jsx   # Color-coded status pills
+        │   │   └── Stamp.jsx         # Rubber-stamp animation for terminal states
+        │   ├── AIChatDrawer.jsx      # Slide-out AI chatbot (Gemini)
+        │   ├── MapPicker.jsx         # Interactive Leaflet map + geocoding
+        │   ├── MapViewer.jsx         # Read-only Leaflet map (partner view)
+        │   ├── NotificationBell.jsx  # Real-time notification dropdown
+        │   ├── PaginatedList.jsx     # Reusable search + pagination wrapper
+        │   ├── ItemPhotos.jsx        # Photo gallery viewer
+        │   ├── RequestCard.jsx       # Summary card for collection requests
+        │   ├── Timeline.jsx          # Vertical status history log
+        │   ├── ProtectedRoute.jsx    # Auth + role guard wrapper
+        │   └── PendingApprovalNotice.jsx
+        ├── constants/
+        │   └── status.js        # STATUS_FLOW, STATUS_META color schemes
+        ├── utils/
+        │   ├── date.js          # IST date/time formatters
+        │   └── formatDims.js    # L×B×H dimension formatter
+        └── pages/
+            ├── Profile.jsx      # Shared profile page for every role
+            ├── Support.jsx      # Shared support ticket page for every role
+            ├── NotFound.jsx     # 404 page
+            ├── public/          # Home, HowItWorks, Pricing, Impact, FAQ,
+            │                    # Contact, Privacy, Terms
+            ├── auth/            # Login, Register
+            ├── consumer/        # Dashboard, Addresses, NewRequest, Requests,
+            │                    # RequestDetail, Certificate, Impact
+            ├── partner/         # Dashboard, Assignments, RequestDetail,
+            │                    # History, Earnings
+            ├── centre/          # Dashboard, IncomingRequests, ActiveRequests,
+            │                    # Inventory, History, RequestDetail
+            └── admin/           # Dashboard, Users, Categories, Settings,
+                                 # Requests, Revenue, Payouts, PartnerBalances,
+                                 # AuditLog, AdminSupport
 ```
 
 ---
 
-## 4. Running it locally
+## 4. Environment variables
+
+| Variable | Required | Where | Description |
+|----------|----------|-------|-------------|
+| `GOOGLE_API_KEY` | Yes | Backend | Google Gemini API key (powers the AI chatbot) |
+| `SECRET_KEY` | Yes (prod) | Backend | JWT signing secret (auto-set in Docker & Render) |
+| `DATABASE_URL` | No | Backend | Defaults to `sqlite:///./ewaste.db`; set to a PostgreSQL URL for production |
+| `CASHFREE_CLIENT_ID` | No | Backend | Cashfree Payouts API client ID (payouts disabled without it) |
+| `CASHFREE_CLIENT_SECRET` | No | Backend | Cashfree Payouts API secret |
+| `STRIPE_SECRET_KEY` | No | Backend | Stripe API key (reserved for future use) |
+| `FRONTEND_URL` | No | Backend | Frontend origin for CORS (auto-set on Render) |
+| `VITE_API_URL` | No | Frontend | Backend API base URL (defaults to `http://localhost:8000`) |
+
+---
+
+## 5. Running it locally
 
 ### Option A: Using Docker (Recommended)
+
 You don't need Python or Node.js installed. With Docker installed, simply run:
 ```bash
+# Set Gemini key (required for the AI chatbot)
+export GOOGLE_API_KEY="your_actual_api_key_here"
+
 docker compose up --build -d
 ```
 - API base: **http://localhost:8000**
@@ -112,6 +196,7 @@ docker compose up --build -d
 - App: **http://localhost:5173**
 
 ### Option B: Manual Setup
+
 You need **Python 3.10+** and **Node.js 18+** installed.
 
 #### Backend (Terminal 1)
@@ -128,6 +213,10 @@ pip install -r requirements.txt
 
 # Export your Gemini API Key before running the server
 export GOOGLE_API_KEY="your_actual_api_key_here"
+
+# (Optional) For Cashfree payouts:
+# export CASHFREE_CLIENT_ID="..."
+# export CASHFREE_CLIENT_SECRET="..."
 
 uvicorn app.main:app --reload --port 8000
 ```
@@ -154,17 +243,20 @@ below (or use the quick-fill buttons on the login page).
 
 ---
 
-## 4.5 Deployment (Render)
+## 5.5. Deployment (Render)
 
-This project includes a `render.yaml` Blueprint for instant, one-click deployments to [Render.com](https://render.com/). 
+This project includes a `render.yaml` Blueprint for instant, one-click deployments to [Render.com](https://render.com/).
 When you connect your GitHub repository to Render as a Blueprint, it will automatically:
-1. Deploy the Backend as a **Docker Web Service**.
-2. Deploy the Frontend as a free, ultra-fast **Static Site**.
-3. Link the frontend to the backend's new public URL via environment variables.
+1. Provision a **PostgreSQL database** (`ewaste-db`, free tier).
+2. Deploy the Backend as a **Docker Web Service** with `SECRET_KEY` auto-generated and `DATABASE_URL` linked to the database.
+3. Deploy the Frontend as a free, ultra-fast **Static Site** (built with `npm run build`, served from `dist/`).
+4. Link the frontend to the backend's public URL via the `VITE_API_URL` environment variable.
+
+> **Note:** You must manually enter `GOOGLE_API_KEY` (and optionally `CASHFREE_CLIENT_ID` / `CASHFREE_CLIENT_SECRET`) in the Render Dashboard after deployment.
 
 ---
 
-## 5. Demo accounts
+## 6. Demo accounts
 
 | Role     | Email                       | Password    |
 |----------|------------------------------|-------------|
@@ -180,11 +272,11 @@ address will only be visible to the Delhi centre.
 
 You can also register new accounts from the app (`/register`) for any role
 except Admin. **Pickup Partner and Segregation Centre** signups require
-admin approval before they can sign in — see section 8 below.
+admin approval before they can sign in — see section 9 below.
 
 ---
 
-## 6. Resetting the database
+## 7. Resetting the database
 
 The SQLite database is a single file at `backend/ewaste.db`. To start over
 with a clean, freshly-seeded database, just stop the server and delete it:
@@ -197,20 +289,49 @@ It will be recreated and reseeded the next time you start the backend.
 
 Since this project has no migration tool (by design, to keep it simple),
 **pulling updated code that changes `models.py` always requires deleting
-`ewaste.db` and letting it reseed** - otherwise the old SQLite file won't
+`ewaste.db` and letting it reseed** — otherwise the old SQLite file won't
 have the new columns/tables and you'll see database errors.
 
 ---
 
-## 7. Feature tour
+## 8. Running tests
+
+### Backend (pytest)
+
+```bash
+cd backend
+source venv/bin/activate
+pytest tests/ -v
+```
+
+Six test modules cover auth, consumer, partner, centre, admin, and common
+endpoints using an isolated test database configured in `tests/conftest.py`.
+
+### Frontend (linting)
+
+```bash
+cd frontend
+npx oxlint
+```
+
+No automated UI test suite (Vitest / Cypress / Playwright) is currently
+configured — see § 11 for planned improvements.
+
+---
+
+## 9. Feature tour
 
 Beyond the core pickup pipeline, every role gets a full set of tools:
 
 **Consumer**
+- **Interactive map picker** for addresses: drop a pin, search by city,
+  auto-fill street/pincode/coordinates via Nominatim reverse geocoding.
 - Item photos (multiple) and L×B×H dimensions on every item, so partners
   know what vehicle a job needs before they arrive.
-- **My Impact** page: personal kg recycled, estimated CO2e avoided, reward
-  points, and milestone badges (5kg → 500kg).
+- **Payment method selection**: choose UPI (triggers an automatic Cashfree
+  payout on pickup) or Cash when accepting a quotation.
+- **My Impact** page: personal kg recycled, estimated CO₂e avoided, reward
+  points, and milestone badges (5 kg → 500 kg).
 - Referral program: every user gets a referral code (`/register?ref=CODE`
   pre-fills it); both sides earn reward points on a successful signup.
 - **Reorder**: duplicate a past request's items into a new one in one click.
@@ -220,13 +341,23 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
 - **Support** ticket system, optionally linked to a specific request.
 
 **Pickup Partner**
-- Self-service **availability toggle** (Available/Offline) — locked to
+- **Job marketplace**: browse unassigned accepted requests in your city and
+  self-accept, in addition to being assigned by a centre.
+- Self-service **availability toggle** (Available / Offline) — locked to
   "On a job" while assigned, like a real gig-work app.
-- **Earnings** page: total/paid/pending payouts, per-job history, and your
-  rating — the pickup fee is snapshotted per job from an admin-configurable
-  setting so later fee changes don't rewrite history.
+- **Google Maps navigation** deep-link from the request detail page for
+  turn-by-turn directions to the pickup address.
+- **OTP verification** with actual weight entry per item — recalculates
+  the final payout based on weighed quantities.
+- **Earnings** page: total/paid/pending wallet balance, per-job history,
+  and your rating — the pickup fee is snapshotted per job from an
+  admin-configurable setting so later fee changes don't rewrite history.
+- **UPI payout**: wallet balance settled via Cashfree when admin processes
+  payout from the Partner Balances page.
 
 **Segregation Centre**
+- **Dashboard with analytics**: 4 Recharts visualizations (inventory status,
+  category breakdown, processing trends, partner distribution).
 - **Warehouse capacity bar** (used vs. total kg) on the dashboard and
   inventory page.
 - Chain-of-custody workflow: bulk-select warehouse items → **Dispatch** to
@@ -237,31 +368,68 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
 
 **Admin**
 - **Revenue** analytics: material value, handling revenue, partner payouts,
-  and platform commission, broken down by month and by city, with charts.
-- **Impact** stats (platform-wide kg recycled / CO2e avoided) — the same
+  and platform commission, broken down by month and by city, with Recharts
+  bar charts.
+- **Dashboard** with 6 analytics charts: request status distribution,
+  revenue trends, category breakdown, city breakdown, user role distribution,
+  and inventory status.
+- **Payouts** management page: view all Cashfree transfers (Pending,
+  Processing, Success, Failed, Cash Collected), check live transfer status,
+  and retry failed payouts.
+- **Partner Balances** page: view each partner's wallet balance and trigger
+  UPI payout via Cashfree.
+- **Impact** stats (platform-wide kg recycled / CO₂e avoided) — the same
   numbers power the public `/impact` marketing page.
 - **Audit log**: who approved/deactivated a user, changed a setting, or
   edited a category, and when.
 - **Support inbox**: respond to and resolve tickets from any role.
-- Category CO2e factor is editable alongside price, feeding both the
+- Category CO₂e factor is editable alongside price, feeding both the
   impact stats and the consumer-facing sustainability estimates.
 
-## 8. Design notes
+**Platform-wide**
+- **AI Chatbot** (Gemini): a slide-out drawer accessible from every
+  authenticated page, powered by `langchain-google-genai` with a custom
+  `knowledge_base.md` system prompt. Answers questions about e-waste
+  disposal, category pricing, data wiping, and service availability.
+- **Dark / Light mode**: toggled via a sun/moon button in the header;
+  preference persisted in `localStorage`.
+- **Responsive mobile navigation**: fixed sidebar on desktop, bottom bar
+  with overflow drawer on mobile screens.
+- **Search & Pagination**: all heavy data tables use a reusable
+  `PaginatedList.jsx` component for scalable browsing and live search
+  filtering.
+- **Real-time notifications**: polled every 15 seconds with an unread
+  count badge on the notification bell.
+- **UI Aesthetics**: premium glassmorphism (backdrop blur) header, custom
+  color palette with circuit/copper/amber tones, rubber-stamp animations
+  for terminal statuses, and smooth slide-up drawer transitions.
+
+---
+
+## 10. Design notes
 
 - **Roles are strict**: every backend endpoint is guarded by a
   `require_role(...)` dependency, and the frontend mirrors this with
   `ProtectedRoute`. A partner account can't reach `/centre/*` routes even by
   typing the URL directly.
 - **City-based routing**: centres only see `PENDING` requests whose address
-  city matches their own city; pickup partners are only assignable within
-  that same city.
+  city matches their own city; pickup partners are only assignable (or can
+  only self-accept) within that same city.
+- **Partner self-assignment**: in addition to centre-initiated assignment,
+  partners can browse a marketplace of unassigned accepted requests in their
+  city and self-accept jobs.
 - **OTP handover**: a 6-digit OTP is generated when a partner is assigned
   and must be entered by the partner (given to them by the consumer in
   person) before a pickup can be marked collected — this models a basic
   chain-of-custody control.
+- **Cashfree payouts**: when a partner verifies the OTP and records actual
+  weights, the system recalculates the final payout amount and triggers an
+  automatic UPI transfer to the consumer via Cashfree (if UPI was selected).
+  Partner earnings accumulate in a wallet and are paid out by admin from
+  the Partner Balances page.
 - **Notifications** are created server-side at each state transition and
-  polled from the frontend (no websockets — kept deliberately simple for a
-  local, single-instance deployment).
+  polled from the frontend every 15 seconds (no websockets — kept
+  deliberately simple for a local, single-instance deployment).
 - **Partner/Centre approval**: registering as a Pickup Partner or
   Segregation Centre creates the account with `is_active=False`. Logging in
   before approval returns a dedicated "application under review" screen
@@ -269,8 +437,8 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   Users** (the same Activate/Deactivate toggle used for account management).
   Consumer accounts are active immediately and never need approval.
 - **Profile editing**: every role has a Profile page (name, phone, and
-  role-specific fields — vehicle number for partners; centre name, address,
-  and city for centres) plus a change-password form.
+  role-specific fields — vehicle number and UPI ID for partners; centre
+  name, address, and city for centres) plus a change-password form.
 - **Admin settings actually take effect**: `service_cities` drives every
   city dropdown in the app (address form, registration, profile), and
   `default_handling_charge` / `default_pickup_charge` pre-fill the centre's
@@ -281,22 +449,39 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   L×B×H (cm) and multiple photos, uploaded to `backend/uploads/items/` and
   served statically at `/uploads/...`. This is shown to the pickup partner
   on the request detail page so they can judge what vehicle a job needs.
+- **Dark mode**: toggled via a sun/moon button in the header; preference
+  persisted in `localStorage` (`reloop_theme`); implemented via Tailwind's
+  `.dark` class strategy with a custom `ThemeContext` provider.
+- **Maps**: consumer address form includes an interactive Leaflet map with
+  click-to-place marker, city search, and Nominatim reverse geocoding.
+  Partner request detail shows a read-only map pin and a "Navigate" button
+  that deep-links to Google Maps for turn-by-turn directions.
 - **Mobile navigation**: the four role dashboards (Consumer, Partner,
   Centre, Admin) use a fixed sidebar on desktop and a bottom bar with a
   hamburger menu on mobile (`md:` breakpoint and below) — tap **Menu** to
   open the full navigation drawer. The public marketing site keeps its own
   top navbar/hamburger, which is a separate, unrelated layout.
-- **AI Assistant**: A custom AI Chatbot powered by `langchain-google-genai` uses a custom `knowledge_base.md` system prompt to help users with e-waste queries. The chat interface is implemented as a sliding `AIChatDrawer.jsx` component.
-- **Search & Pagination**: All heavy data tables (e.g., Active Requests, Users, Assignments) utilize a reusable `PaginatedList.jsx` component for scalable browsing and live search filtering.
-- **UI Aesthetics**: The application features a sticky header with a premium glassmorphism (backdrop blur) effect.
+- **AI Assistant**: a custom AI chatbot powered by `langchain-google-genai`
+  uses a custom `knowledge_base.md` system prompt to help users with
+  e-waste queries. The chat interface is implemented as a sliding
+  `AIChatDrawer.jsx` component accessible from the app header.
+- **Search & Pagination**: all heavy data tables (e.g., Active Requests,
+  Users, Assignments) utilize a reusable `PaginatedList.jsx` component for
+  scalable browsing and live search filtering.
 
-## 9. Possible next versions
+---
+
+## 11. Possible next versions
 
 The codebase intentionally leaves room to grow without a rewrite:
 
-- Swap SQLite → PostgreSQL by changing `DATABASE_URL` in `database.py`.
+- Swap SQLite → PostgreSQL locally by changing `DATABASE_URL` in
+  `database.py` (already PostgreSQL on Render).
 - Add Redis + Celery for async notification delivery / SMS-OTP.
-- Add real payment/escrow handling instead of the current settlement note.
+- WebSocket notifications to replace the current 15-second polling.
+- Vitest / Playwright frontend test suite.
+- Multi-language i18n support.
+- SMS OTP delivery (currently OTP is displayed in-app only).
 - Track approval history separately from active/inactive status, so an
   admin-deactivated account can be distinguished from one that was never
   approved in the first place.
