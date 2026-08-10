@@ -60,8 +60,8 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
             beneficiary_phone=req.consumer.phone if req.consumer else "",
             remarks="Reloop Consumer Payout",
         )
-        payout.cashfree_status_code = result.get("subCode") or result.get("status")
-        payout.beneficiary_id = result.get("beneficiary_id")
+        payout.cashfree_status_code = result.get("status")
+        payout.beneficiary_id = result.get("beneficiary_details", {}).get("beneficiary_id")
 
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")
@@ -124,8 +124,8 @@ def process_partner_payout(db: Session, partner_user_id: int) -> dict:
             beneficiary_phone=user.phone if user else "",
             remarks="Reloop partner payout",
         )
-        payout.cashfree_status_code = result.get("subCode") or result.get("status")
-        payout.beneficiary_id = result.get("beneficiary_id")
+        payout.cashfree_status_code = result.get("status")
+        payout.beneficiary_id = result.get("beneficiary_details", {}).get("beneficiary_id")
 
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")

@@ -31,11 +31,34 @@ export default function Payouts() {
     load();
   }, [statusFilter, typeFilter]);
 
-  const handleRetry = async (id) => {
-    if (!confirm("Retry this payout?")) return;
+  // Auto-dismiss error notification after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  const NON_RETRYABLE_CODES = [
+    "INVALID_ACCOUNT_FAIL",
+    "INVALID_VPA",
+    "INVALID_ACCOUNT",
+    "BENEFICIARY_OR_VPA_NOT_RESOLVED",
+    "ACCOUNT_DOES_NOT_EXIST",
+    "INVALID_BENEFICIARY_DETAILS"
+  ];
+
+  const handleRetry = async (payout) => {
+    setError("");
+    if (payout.cashfree_status_code && NON_RETRYABLE_CODES.includes(payout.cashfree_status_code.toUpperCase())) {
+      setError(`Cashfree error '${payout.cashfree_status_code}'`);
+      return;
+    }
+
+    if (!confirm(`Retry payout #${payout.id}?`)) return;
     setActing(true);
     try {
-      await adminApi.retryPayout(id);
+      await adminApi.retryPayout(payout.id);
       await load();
     } catch (err) {
       setError(apiErrorMessage(err, "Failed to retry payout"));
@@ -136,22 +159,10 @@ export default function Payouts() {
                         <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusColor}`}>
                           {p.status}
                         </span>
-                        {p.cashfree_status && p.payment_method === "ONLINE" && (
-                          <div className="mt-1 flex flex-col gap-0.5">
-                            <span className="text-[10px] text-inkfaint font-mono truncate max-w-[120px]">
-                              {p.cashfree_status}
-                            </span>
-                            {p.cashfree_status_code && (
-                              <span className="text-[10px] text-inkfaint font-mono truncate max-w-[120px]">
-                                Code: {p.cashfree_status_code}
-                              </span>
-                            )}
-                            {p.beneficiary_id && (
-                              <span className="text-[10px] text-inkfaint font-mono truncate max-w-[120px]">
-                                Ben: {p.beneficiary_id}
-                              </span>
-                            )}
-                          </div>
+                        {p.cashfree_status_code && (
+                          <span className="block text-[10px] mt-1 text-inkfaint font-mono truncate max-w-[120px]">
+                            {p.cashfree_status_code}
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-inkfaint whitespace-nowrap">
@@ -161,7 +172,7 @@ export default function Payouts() {
                         {p.status === "FAILED" && (
                           <button 
                             disabled={acting} 
-                            onClick={() => handleRetry(p.id)} 
+                            onClick={() => handleRetry(p)} 
                             className="text-xs font-medium text-circuit hover:underline"
                           >
                             Retry

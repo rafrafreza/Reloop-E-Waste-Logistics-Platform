@@ -552,8 +552,8 @@ def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Dep
             beneficiary_phone=payout_user.phone if payout_user else "",
             remarks="Reloop Payout Retry",
         )
-        payout.cashfree_status_code = result.get("subCode") or result.get("status")
-        payout.beneficiary_id = result.get("beneficiary_id")
+        payout.cashfree_status_code = result.get("status_code")
+        payout.beneficiary_id = result.get("beneficiary_details", {}).get("beneficiary_id")
 
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")
@@ -593,8 +593,8 @@ def check_payout_status(payout_id: int, db: Session = Depends(get_db), user: Use
 
     if result.get("http_status") == 200:
         import json
-        payout.cashfree_status_code = result.get("subCode") or result.get("status")
-        payout.beneficiary_id = result.get("beneficiary_id")
+        payout.cashfree_status_code = result.get("status_code")
+        payout.beneficiary_id = result.get("beneficiary_details", {}).get("beneficiary_id")
         cf_status = result.get("status")
         if cf_status:
             payout.cashfree_status = cf_status

@@ -43,6 +43,27 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.on_event("startup")
 def on_startup():
     seed.run()
+    # Log outbound IP on startup for Cashfree whitelist reference
+    try:
+        import httpx
+        resp = httpx.get("https://api.ipify.org?format=json", timeout=10)
+        ip = resp.json().get("ip")
+        print(f"==========================================")
+        print(f"OUTBOUND IP: {ip}")
+        print(f"==========================================")
+    except Exception as e:
+        print(f"Could not determine outbound IP: {e}")
+
+
+@app.get("/api/my-ip")
+def get_my_ip():
+    """Helper endpoint to get the current outbound IP for Cashfree whitelisting."""
+    import httpx
+    try:
+        resp = httpx.get("https://api.ipify.org?format=json", timeout=10)
+        return {"outbound_ip": resp.json().get("ip")}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 app.include_router(auth.router)
