@@ -128,6 +128,7 @@ def _serialize_profile(db: Session, user: User) -> ProfileOut:
             data["rating_count"] = profile.rating_count
             data["total_earnings"] = profile.total_earnings
             data["status"] = profile.status
+            data["upi_id"] = profile.upi_id
     elif user.role == "CENTRE":
         profile = db.query(CentreProfile).filter(CentreProfile.user_id == user.id).first()
         if profile:
@@ -160,6 +161,8 @@ def update_profile(payload: ProfileUpdate, db: Session = Depends(get_db), curren
                 profile.vehicle_number = payload.vehicle_number
             if payload.city is not None:
                 profile.city = payload.city
+            if payload.upi_id is not None:
+                profile.upi_id = payload.upi_id
     elif current_user.role == "CENTRE":
         profile = db.query(CentreProfile).filter(CentreProfile.user_id == current_user.id).first()
         if profile:

@@ -27,8 +27,8 @@ export default function Earnings() {
       <p className="mt-1 text-sm text-inkfaint">What you've made on Reloop, job by job.</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile label="Total earnings" value={`₹${earnings.total_earnings.toFixed(0)}`} accent="text-copper" />
-        <StatTile label="Paid out" value={`₹${earnings.paid_earnings.toFixed(0)}`} accent="text-circuit" />
+        <StatTile label="Total expected" value={`₹${earnings.total_earnings.toFixed(0)}`} accent="text-copper" />
+        <StatTile label="Wallet Balance" value={`₹${earnings.paid_earnings.toFixed(0)}`} accent="text-circuit" />
         <StatTile label="Pending" value={`₹${earnings.pending_earnings.toFixed(0)}`} accent="text-amber" />
         <StatTile label="Completed jobs" value={earnings.completed_jobs} accent="text-ink" />
       </div>
@@ -48,10 +48,10 @@ export default function Earnings() {
         </p>
       </div>
 
-      <h2 className="mt-8 font-medium text-ink">Payout history</h2>
+      <h2 className="mt-8 font-medium text-ink">Wallet additions</h2>
       <div className="mt-4">
         {paidJobs.length === 0 ? (
-          <EmptyState title="No payouts yet" description="Completed jobs and their payouts will show up here." />
+          <EmptyState title="No wallet additions yet" description="Completed jobs and their wallet additions will show up here." />
         ) : (
           <div className="overflow-x-auto rounded border border-ink/10 bg-white">
             <table className="w-full text-left text-sm">
@@ -59,23 +59,30 @@ export default function Earnings() {
                 <tr className="border-b border-ink/10 bg-paperdim">
                   <th className="px-4 py-3 field-label">Request</th>
                   <th className="px-4 py-3 field-label">Date</th>
-                  <th className="px-4 py-3 field-label text-right">Payout</th>
+                  <th className="px-4 py-3 field-label text-right">Wallet Credit</th>
                   <th className="px-4 py-3 field-label">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {paidJobs.map((r) => (
+                {paidJobs.map((r) => {
+                  let credit = r.assignment.payout_amount;
+                  if (r.payment_method === "CASH" && r.quotation) {
+                    credit += r.quotation.total_amount;
+                  }
+                  
+                  return (
                   <tr key={r.id} className="border-b border-ink/5 last:border-0">
                     <td className="px-4 py-3 font-mono text-xs text-inkfaint">#{String(r.id).padStart(5, "0")}</td>
                     <td className="px-4 py-3 text-inkfaint">{formatDate(r.updated_at)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-ink">₹{r.assignment.payout_amount.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-ink">₹{credit.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${PAYOUT_STYLE[r.assignment.payout_status]}`}>
-                        {r.assignment.payout_status}
+                        {r.assignment.payout_status === "PAID" ? "SETTLED TO WALLET" : r.assignment.payout_status}
                       </span>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

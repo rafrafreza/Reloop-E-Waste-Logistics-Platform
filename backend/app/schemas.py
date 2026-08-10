@@ -73,6 +73,7 @@ class ProfileOut(UserOut):
     avg_rating: float | None = None
     rating_count: int | None = None
     total_earnings: float | None = None
+    upi_id: str | None = None
     referral_count: int = 0
     status: str | None = None
 
@@ -87,6 +88,7 @@ class ProfileUpdate(BaseModel):
     address: str | None = None
     # Partner + Centre
     city: str | None = None
+    upi_id: str | None = None
 
 
 class PasswordChange(BaseModel):
@@ -188,6 +190,19 @@ class CollectionRequestCreate(BaseModel):
         return v
 
 
+class AcceptQuoteRequest(BaseModel):
+    payment_method: str = "ONLINE"
+    upi_id: str | None = None
+
+    @field_validator("payment_method")
+    @classmethod
+    def valid_method(cls, v: str) -> str:
+        v = v.upper()
+        if v not in {"ONLINE", "CASH"}:
+            raise ValueError("payment_method must be ONLINE or CASH")
+        return v
+
+
 class QuotationOut(BaseModel):
     id: int
     material_value: float
@@ -276,6 +291,8 @@ class CollectionRequestOut(BaseModel):
     preferred_date: datetime | None
     notes: str | None
     pickup_otp: str | None = None
+    payment_method: str = "ONLINE"
+    consumer_upi_id: str | None = None
     created_at: datetime
     updated_at: datetime
     address: AddressBrief | None = None
@@ -399,6 +416,8 @@ class PartnerOut(BaseModel):
     status: str
     avg_rating: float = 0.0
     rating_count: int = 0
+    total_earnings: float = 0.0
+    upi_id: str | None = None
 
     class Config:
         from_attributes = True
@@ -570,3 +589,31 @@ class CentreAnalyticsOut(BaseModel):
     category_breakdown: list[CentreCategoryWeight]
     processing_trends: list[CentreTrendPoint]
     partner_status_distribution: list[CentrePartnerStatus]
+
+
+# ---------------------------------------------------------------------------
+# Payouts
+# ---------------------------------------------------------------------------
+
+
+class PayoutOut(BaseModel):
+    id: int
+    request_id: int | None
+    user_id: int
+    payout_type: str
+    amount: float
+    payment_method: str
+    upi_id: str | None
+    transfer_id: str | None
+    cashfree_status: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PayoutAdminOut(PayoutOut):
+    user_name: str | None = None
+    user_role: str | None = None

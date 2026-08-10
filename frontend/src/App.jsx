@@ -48,6 +48,8 @@ import AdminRequests from "./pages/admin/Requests";
 import AdminRevenue from "./pages/admin/Revenue";
 import AdminAuditLog from "./pages/admin/AuditLog";
 import AdminSupport from "./pages/admin/AdminSupport";
+import AdminPayouts from "./pages/admin/Payouts";
+import AdminPartnerBalances from "./pages/admin/PartnerBalances";
 
 export default function App() {
   return (
@@ -141,6 +143,8 @@ export default function App() {
             <Route path="categories" element={<AdminCategories />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="revenue" element={<AdminRevenue />} />
+            <Route path="payouts" element={<AdminPayouts />} />
+            <Route path="partner-balances" element={<AdminPartnerBalances />} />
             <Route path="audit-log" element={<AdminAuditLog />} />
             <Route path="support" element={<AdminSupport />} />
             <Route path="profile" element={<Profile />} />

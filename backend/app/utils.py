@@ -89,6 +89,8 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
         preferred_date=req.preferred_date,
         notes=req.notes,
         pickup_otp=req.pickup_otp,
+        payment_method=getattr(req, 'payment_method', 'ONLINE'),
+        consumer_upi_id=getattr(req, 'consumer_upi_id', None),
         created_at=req.created_at,
         updated_at=req.updated_at,
         address=AddressBrief.model_validate(req.address) if req.address else None,

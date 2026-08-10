@@ -39,6 +39,8 @@ const NAV_ITEMS = {
     { to: "/admin/categories", label: "Categories & Pricing", icon: "tag" },
     { to: "/admin/settings", label: "Settings", icon: "settings" },
     { to: "/admin/revenue", label: "Revenue", icon: "trending" },
+    { to: "/admin/payouts", label: "Payouts History", icon: "money" },
+    { to: "/admin/partner-balances", label: "Partner Balances", icon: "users" },
     { to: "/admin/audit-log", label: "Audit Log", icon: "clipboard" },
     { to: "/admin/support", label: "Support Inbox", icon: "help" },
     { to: "/admin/profile", label: "Profile", icon: "user" },
@@ -122,15 +124,15 @@ export default function AppShell() {
   };
 
   return (
-    <div className="flex min-h-screen bg-paper">
+    <div className="flex h-dvh bg-paper overflow-hidden">
       {/* Desktop sidebar - unchanged, hidden below md */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink/10 bg-white md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-ink/10 bg-white md:flex">
         <div className="flex items-center gap-2 border-b border-ink/10 px-5 py-4">
           <BrandMark />
           <span className="font-semibold text-ink">Reloop</span>
         </div>
 
-        <nav className="flex-1 space-y-0.5 px-3 py-4">
+        <nav className="flex-1 space-y-0.5 px-3 py-4 overflow-y-auto">
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -160,10 +162,10 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Top header: brand top-left on mobile, role label top-left on desktop.
             Desktop top-right has AI Chat, Theme toggle (sun/moon), NotificationBell. */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-ink/10 bg-white/90 backdrop-blur-md px-4 py-3 md:px-8">
+        <header className="shrink-0 z-20 flex items-center justify-between border-b border-ink/10 bg-white/90 backdrop-blur-md px-4 py-3 md:px-8">
           <div className="flex items-center gap-2 md:hidden">
             <BrandMark small />
             <span className="text-sm font-semibold text-ink">Reloop</span>
@@ -224,7 +226,7 @@ export default function AppShell() {
           </div>
         </header>
 
-        <main className="w-full min-w-0 max-w-full flex-1 px-4 pb-24 pt-6 md:px-8 md:py-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-24 pt-6 md:px-8 md:py-8">
           <Outlet />
         </main>
       </div>

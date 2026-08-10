@@ -20,3 +20,4 @@ frontend/.env
 *.log
 .vscode/
 .idea/
+*.txt

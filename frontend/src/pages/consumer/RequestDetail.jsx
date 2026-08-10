@@ -49,6 +49,10 @@ export default function RequestDetail() {
   const [partnerReview, setPartnerReview] = useState("");
   const [centreReview, setCentreReview] = useState("");
 
+  const [showAcceptForm, setShowAcceptForm] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("ONLINE");
+  const [upiId, setUpiId] = useState("");
+
   const load = () => consumerApi.getRequest(id).then((res) => setRequest(res.data));
 
   useEffect(() => {
@@ -172,15 +176,47 @@ export default function RequestDetail() {
           </p>
         )}
 
-        <div className="ticket-divider my-4" />
         <div className="flex flex-wrap gap-2">
-          {request.status === "QUOTED" && (
+          {request.status === "QUOTED" && !showAcceptForm && (
             <>
-              <button disabled={acting} onClick={() => act(() => consumerApi.acceptQuote(id))} className="btn-primary">Accept quotation</button>
+              <button disabled={acting} onClick={() => setShowAcceptForm(true)} className="btn-primary">Accept quotation</button>
               <button disabled={acting} onClick={() => act(() => consumerApi.rejectQuote(id), "Reject this quotation?")} className="btn-danger">Reject</button>
             </>
           )}
-          {["PENDING", "QUOTED"].includes(request.status) && (
+          {request.status === "QUOTED" && showAcceptForm && (
+            <div className="w-full rounded border border-ink/10 bg-paperdim p-4">
+              <p className="field-label mb-3">Choose payout method</p>
+              <div className="flex gap-4 mb-4">
+                <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                  <input type="radio" name="payment_method" value="ONLINE" checked={paymentMethod === "ONLINE"} onChange={() => setPaymentMethod("ONLINE")} className="accent-circuit" />
+                  Online (UPI)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                  <input type="radio" name="payment_method" value="CASH" checked={paymentMethod === "CASH"} onChange={() => setPaymentMethod("CASH")} className="accent-circuit" />
+                  Cash on Pickup
+                </label>
+              </div>
+              
+              {paymentMethod === "ONLINE" && (
+                <div className="mb-4 max-w-sm">
+                  <label className="label">UPI ID</label>
+                  <input type="text" className="input" placeholder="e.g. 9876543210@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} />
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <button 
+                  disabled={acting || (paymentMethod === "ONLINE" && !upiId)} 
+                  onClick={() => act(() => consumerApi.acceptQuote(id, { payment_method: paymentMethod, upi_id: paymentMethod === "ONLINE" ? upiId : null }))} 
+                  className="btn-primary"
+                >
+                  Confirm acceptance
+                </button>
+                <button disabled={acting} onClick={() => setShowAcceptForm(false)} className="btn-secondary">Cancel</button>
+              </div>
+            </div>
+          )}
+          {["PENDING", "QUOTED"].includes(request.status) && !showAcceptForm && (
             <button disabled={acting} onClick={() => act(() => consumerApi.cancelRequest(id), "Cancel this request?")} className="btn-secondary">
               Cancel request
             </button>

@@ -66,7 +66,7 @@ export const consumerApi = {
   createRequest: (payload) => client.post("/api/consumer/requests", payload),
   listRequests: (status) => client.get("/api/consumer/requests", { params: status ? { status } : {} }),
   getRequest: (id) => client.get(`/api/consumer/requests/${id}`),
-  acceptQuote: (id) => client.post(`/api/consumer/requests/${id}/accept-quote`),
+  acceptQuote: (id, payload) => client.post(`/api/consumer/requests/${id}/accept-quote`, payload),
   rejectQuote: (id) => client.post(`/api/consumer/requests/${id}/reject-quote`),
   cancelRequest: (id) => client.post(`/api/consumer/requests/${id}/cancel`),
   rateRequest: (id, payload) => client.post(`/api/consumer/requests/${id}/rate`, payload),
@@ -127,4 +127,8 @@ export const adminApi = {
   auditLog: () => client.get("/api/admin/audit-log"),
   listTickets: (status) => client.get("/api/admin/support/tickets", { params: status ? { status } : {} }),
   respondToTicket: (id, payload) => client.put(`/api/admin/support/tickets/${id}`, payload),
+  listPayouts: (status, type) => client.get("/api/admin/payouts", { params: { status, payout_type: type } }),
+  retryPayout: (id) => client.post(`/api/admin/payouts/${id}/retry`),
+  checkPayoutStatus: (id) => client.get(`/api/admin/payouts/${id}/status`),
+  processPartnerPayout: (userId) => client.post(`/api/admin/payouts/process-partner/${userId}`),
 };

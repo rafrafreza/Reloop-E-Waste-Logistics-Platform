@@ -157,10 +157,27 @@ def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends
             raise HTTPException(status_code=400, detail=f"Item {entry.item_id} does not belong to this request")
         item.actual_weight_kg = entry.actual_weight_kg
 
+    if req.quotation:
+        new_material_value = 0.0
+        for item in req.items:
+            weight = item.actual_weight_kg if item.actual_weight_kg is not None else item.estimated_weight_kg
+            if item.category:
+                new_material_value += weight * item.category.price_per_kg
+        
+        req.quotation.material_value = round(new_material_value, 2)
+        new_total = new_material_value - req.quotation.handling_charge - req.quotation.pickup_charge
+        req.quotation.total_amount = max(0.0, round(new_total, 2))
+        req.quotation.platform_commission = round(new_material_value * 0.10, 2)
+
     req.status = "PICKED_UP"
     log_status(db, req.id, "PICKED_UP", "OTP verified, items collected from consumer")
     notify(db, req.consumer_id, "Pickup completed",
            f"Your e-waste for request #{req.id} has been picked up successfully.")
+
+    # Trigger consumer payout
+    from app.cashfree_payout import process_consumer_payout
+    process_consumer_payout(db, req)
+
     db.commit()
     return to_request_out(_get_assigned_request(db, request_id, user.id))
 

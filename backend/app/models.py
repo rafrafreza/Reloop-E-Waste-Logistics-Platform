@@ -107,6 +107,7 @@ class PartnerProfile(Base):
     avg_rating: Mapped[float] = mapped_column(Float, default=0.0)
     rating_count: Mapped[int] = mapped_column(Integer, default=0)
     total_earnings: Mapped[float] = mapped_column(Float, default=0.0)
+    upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="partner_profile")
 
@@ -137,6 +138,9 @@ class CollectionRequest(Base):
     preferred_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     pickup_otp: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    payment_method: Mapped[str] = mapped_column(String(20), default="ONLINE")
+    # ONLINE | CASH
+    consumer_upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
@@ -311,6 +315,35 @@ class Notification(Base):
     link: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
+class Payout(Base):
+    """Tracks every Cashfree payout transfer (consumer & partner)."""
+    __tablename__ = "payouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[int | None] = mapped_column(ForeignKey("collection_requests.id"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    payout_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # CONSUMER | PARTNER
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(20), nullable=False)
+    # ONLINE | CASH
+    upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Cashfree fields
+    transfer_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, index=True)
+    cashfree_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # PENDING | SUCCESS | FAILED | REVERSED | REJECTED | ERROR
+    cashfree_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    # PENDING | PROCESSING | SUCCESS | FAILED | CASH_COLLECTED
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+
+    user: Mapped["User"] = relationship()
+    request: Mapped["CollectionRequest | None"] = relationship()
 
 
 class Setting(Base):

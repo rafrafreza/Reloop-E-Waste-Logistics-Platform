@@ -159,10 +159,16 @@ def complete_request(request_id: int, db: Session = Depends(get_db), user: User 
         partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == req.assignment.partner_id).first()
         if partner_profile:
             partner_profile.status = "AVAILABLE"
-            partner_profile.total_earnings += req.assignment.payout_amount
+            wallet_credit = req.assignment.payout_amount
+            # If CASH: reimburse the consumer amount the partner paid out of pocket
+            if req.payment_method == "CASH" and req.quotation:
+                wallet_credit += req.quotation.total_amount
+            partner_profile.total_earnings += wallet_credit
+        else:
+            wallet_credit = req.assignment.payout_amount
         req.assignment.payout_status = "PAID"
         notify(db, req.assignment.partner_id, "Payout settled",
-               f"Rs.{req.assignment.payout_amount:.2f} for request #{req.id} has been added to your earnings.")
+               f"Rs.{wallet_credit:.2f} for request #{req.id} has been added to your wallet.")
 
     db.commit()
     return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())

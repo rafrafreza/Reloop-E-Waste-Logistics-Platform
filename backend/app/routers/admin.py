@@ -15,6 +15,7 @@ from app.models import (
     CollectionRequest,
     InventoryItem,
     PartnerProfile,
+    Payout,
     RequestItem,
     Setting,
     SupportTicket,
@@ -33,6 +34,8 @@ from app.schemas import (
     ImpactStats,
     InventoryStatusCount,
     PartnerOut,
+    PayoutAdminOut,
+    PayoutOut,
     RequestStatusCount,
     RevenueBreakdown,
     RevenueStats,
@@ -334,6 +337,7 @@ def list_partners(db: Session = Depends(get_db), user: User = Depends(require_ad
             id=p.id, user_id=p.user_id, full_name=p.user.full_name, phone=p.user.phone,
             vehicle_number=p.vehicle_number, city=p.city, status=p.status,
             avg_rating=p.avg_rating, rating_count=p.rating_count,
+            total_earnings=p.total_earnings, upi_id=p.upi_id,
         )
         for p in partners
     ]
@@ -486,3 +490,142 @@ def respond_to_ticket(ticket_id: int, payload: SupportTicketAdminUpdate, db: Ses
         message=ticket.message, status=ticket.status, admin_response=ticket.admin_response,
         created_at=ticket.created_at, updated_at=ticket.updated_at,
     )
+
+
+# ---------------------------------------------------------------------------
+# Payout Management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/payouts", response_model=list[PayoutAdminOut])
+def list_payouts(
+    status: str | None = None,
+    payout_type: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    """List all payouts with optional filters."""
+    q = db.query(Payout).options(joinedload(Payout.user))
+    if status:
+        q = q.filter(Payout.status == status.upper())
+    if payout_type:
+        q = q.filter(Payout.payout_type == payout_type.upper())
+    payouts = q.order_by(Payout.created_at.desc()).limit(200).all()
+    return [
+        PayoutAdminOut(
+            **PayoutOut.model_validate(p).model_dump(),
+            user_name=p.user.full_name if p.user else None,
+            user_role=p.user.role if p.user else None,
+        )
+        for p in payouts
+    ]
+
+
+@router.post("/payouts/{payout_id}/retry")
+def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Retry a failed payout."""
+    import json
+    from app.cashfree import create_upi_transfer, generate_transfer_id
+
+    payout = db.get(Payout, payout_id)
+    if not payout:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    if payout.status != "FAILED":
+        raise HTTPException(status_code=400, detail="Only failed payouts can be retried")
+    if not payout.upi_id:
+        raise HTTPException(status_code=400, detail="No UPI ID associated with this payout")
+        
+    if payout.cashfree_response:
+        try:
+            resp_data = json.loads(payout.cashfree_response)
+            cf_code = resp_data.get("status_code") or resp_data.get("subCode")
+            if cf_code in ["INVALID_ACCOUNT_FAIL", "INVALID_VPA", "BENEFICIARY_OR_VPA_NOT_RESOLVED"]:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Cannot retry: the user's UPI ID is invalid. Please obtain a correct UPI ID from the user."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    transfer_id = generate_transfer_id("RLR")  # RLR = Reloop Retry
+    payout.transfer_id = transfer_id
+    payout.status = "PROCESSING"
+
+    try:
+        payout_user = db.get(User, payout.user_id)
+        result = create_upi_transfer(
+            transfer_id=transfer_id,
+            amount=payout.amount,
+            vpa=payout.upi_id,
+            beneficiary_name=payout_user.full_name if payout_user else "User",
+            beneficiary_phone=payout_user.phone if payout_user else "",
+            remarks="Reloop Payout Retry",
+        )
+        payout.cashfree_response = json.dumps(result)
+
+        if result.get("http_status") in (200, 201):
+            cf_status = result.get("status", "PENDING")
+            payout.cashfree_status = cf_status
+            payout.status = "SUCCESS" if cf_status == "SUCCESS" else "PROCESSING"
+            notify(db, payout.user_id, "Payout retried",
+                   f"Rs.{payout.amount:.2f} payout has been re-initiated to your UPI.")
+        else:
+            payout.status = "FAILED"
+            payout.cashfree_status = "ERROR"
+            error_msg = result.get("message", "Unknown error")
+            raise HTTPException(status_code=400, detail=f"Cashfree error: {error_msg}")
+    except HTTPException:
+        # Re-raise HTTP exceptions immediately without getting caught by Exception block
+        raise
+    except Exception as e:
+        payout.status = "FAILED"
+        payout.cashfree_response = str(e)
+        db.commit()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    log_audit(db, user.id, "PAYOUT_RETRIED", f"Payout #{payout.id} retried as {transfer_id}")
+    db.commit()
+    return {"ok": True, "transfer_id": transfer_id}
+
+
+@router.get("/payouts/{payout_id}/status")
+def check_payout_status(payout_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Check live status from Cashfree for a payout."""
+    from app.cashfree import get_transfer_status
+
+    payout = db.get(Payout, payout_id)
+    if not payout or not payout.transfer_id:
+        raise HTTPException(status_code=404, detail="Payout not found or no transfer ID")
+
+    result = get_transfer_status(payout.transfer_id)
+
+    if result.get("http_status") == 200:
+        import json
+        payout.cashfree_response = json.dumps(result)
+        cf_status = result.get("status")
+        if cf_status:
+            payout.cashfree_status = cf_status
+            if cf_status == "SUCCESS":
+                payout.status = "SUCCESS"
+            elif cf_status in ("FAILED", "REVERSED", "REJECTED"):
+                payout.status = "FAILED"
+        db.commit()
+
+    return result
+
+
+@router.post("/payouts/process-partner/{partner_user_id}")
+def process_partner_payout_endpoint(
+    partner_user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    """Admin triggers a Cashfree transfer for a partner's wallet balance."""
+    from app.cashfree_payout import process_partner_payout
+    result = process_partner_payout(db, partner_user_id)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    log_audit(db, user.id, "PARTNER_PAYOUT", f"User {partner_user_id}: Rs.{result['amount']}")
+    return result

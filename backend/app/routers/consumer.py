@@ -13,7 +13,7 @@ from app.models import (
     RequestItemImage,
     User,
 )
-from app.schemas import AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut, ImpactStats, RatingCreate
+from app.schemas import AcceptQuoteRequest, AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut, ImpactStats, RatingCreate
 from app.utils import log_status, to_request_out
 
 router = APIRouter(prefix="/api/consumer", tags=["consumer"])
@@ -154,11 +154,21 @@ def get_request(request_id: int, db: Session = Depends(get_db), user: User = Dep
 
 
 @router.post("/requests/{request_id}/accept-quote", response_model=CollectionRequestOut)
-def accept_quote(request_id: int, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
+def accept_quote(
+    request_id: int,
+    payload: AcceptQuoteRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_consumer),
+):
     req = _get_owned_request(db, request_id, user.id)
     if req.status != "QUOTED":
         raise HTTPException(status_code=400, detail="This request does not have a pending quotation")
 
+    if payload.payment_method == "ONLINE" and not payload.upi_id:
+        raise HTTPException(status_code=400, detail="UPI ID is required for online payment")
+
+    req.payment_method = payload.payment_method
+    req.consumer_upi_id = payload.upi_id if payload.payment_method == "ONLINE" else None
     req.status = "ACCEPTED"
     req.quotation.status = "ACCEPTED"
     log_status(db, req.id, "ACCEPTED", "Consumer accepted the quotation")

@@ -38,6 +38,7 @@ export default function Profile() {
         centre_name: res.data.centre_name || "",
         address: res.data.address || "",
         city: res.data.city || "",
+        upi_id: res.data.upi_id || "",
       });
     });
 
@@ -170,6 +171,10 @@ export default function Profile() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="label">UPI ID (for payouts)</label>
+              <input className="input" value={form.upi_id} onChange={update("upi_id")} placeholder="example@upi" />
             </div>
           </>
         )}
