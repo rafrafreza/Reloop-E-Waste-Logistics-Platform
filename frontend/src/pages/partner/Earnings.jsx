@@ -65,7 +65,7 @@ export default function Earnings() {
               </thead>
               <tbody>
                 {paidJobs.map((r) => {
-                  let credit = r.assignment.payout_amount;
+                  let credit = r.assignment.pickup_fee;
                   if (r.payment_method === "CASH" && r.quotation) {
                     credit += r.quotation.total_amount;
                   }
@@ -76,8 +76,8 @@ export default function Earnings() {
                     <td className="px-4 py-3 text-inkfaint">{formatDate(r.updated_at)}</td>
                     <td className="px-4 py-3 text-right font-mono text-ink">₹{credit.toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${PAYOUT_STYLE[r.assignment.payout_status]}`}>
-                        {r.assignment.payout_status === "PAID" ? "SETTLED TO WALLET" : r.assignment.payout_status}
+                      <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${PAYOUT_STYLE[r.assignment.pickup_fee_status]}`}>
+                        {r.assignment.pickup_fee_status === "PAID" ? "SETTLED TO WALLET" : r.assignment.pickup_fee_status}
                       </span>
                     </td>
                   </tr>

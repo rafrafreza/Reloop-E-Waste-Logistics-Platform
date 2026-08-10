@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import NotificationBell from "../NotificationBell";
@@ -127,10 +127,10 @@ export default function AppShell() {
     <div className="flex h-dvh bg-paper overflow-hidden">
       {/* Desktop sidebar - unchanged, hidden below md */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-ink/10 bg-white md:flex">
-        <div className="flex items-center gap-2 border-b border-ink/10 px-5 py-4">
+        <Link to="/" className="flex items-center gap-2 border-b border-ink/10 px-5 py-4">
           <BrandMark />
           <span className="font-semibold text-ink">Reloop</span>
-        </div>
+        </Link>
 
         <nav className="flex-1 space-y-0.5 px-3 py-4 overflow-y-auto">
           {items.map((item) => (
@@ -166,10 +166,10 @@ export default function AppShell() {
         {/* Top header: brand top-left on mobile, role label top-left on desktop.
             Desktop top-right has AI Chat, Theme toggle (sun/moon), NotificationBell. */}
         <header className="shrink-0 z-20 flex items-center justify-between border-b border-ink/10 bg-white/90 backdrop-blur-md px-4 py-3 md:px-8">
-          <div className="flex items-center gap-2 md:hidden">
+          <Link to="/" className="flex items-center gap-2 md:hidden">
             <BrandMark small />
             <span className="text-sm font-semibold text-ink">Reloop</span>
-          </div>
+          </Link>
           <p className="hidden field-label md:block">{ROLE_LABEL[user.role]}</p>
           <div className="flex items-center gap-2 sm:gap-3">
             <button

@@ -11,23 +11,23 @@ const STAGES = [
   },
   {
     stage: "ACCEPTED",
-    title: "You accept or decline",
-    body: "No pickup happens without your sign-off. Decline and the request closes; accept and it moves to dispatch.",
+    title: "You accept & select payment",
+    body: "No pickup happens without your sign-off. If you accept the quote, select your preferred payment method (Online via UPI, or Cash) to move the request to dispatch.",
   },
   {
     stage: "ASSIGNED",
-    title: "A partner is dispatched",
-    body: "The centre assigns a verified pickup partner and a one-time handover OTP is generated for your request.",
+    title: "A partner accepts the job",
+    body: "A verified pickup partner accepts your request, and a one-time handover OTP is generated.",
   },
   {
     stage: "OUT_FOR_PICKUP → PICKED_UP",
-    title: "Verified handover",
-    body: "Share the OTP with your pickup partner only at the doorstep. They record the actual weight of each item as they collect it.",
+    title: "Verified handover & payout",
+    body: "Share the OTP with your pickup partner only at the doorstep. Once verified, your payout is instantly processed to your UPI, or cash is handed over.",
   },
   {
     stage: "AT_CENTRE → COMPLETED",
     title: "Logged and recycled",
-    body: "Items are entered into the centre's warehouse inventory and processed. Your request closes with a final settlement.",
+    body: "Items are entered into the centre's warehouse inventory and processed. Your request is fully closed.",
   },
 ];
 

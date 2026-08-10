@@ -71,12 +71,22 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
             partner_name=req.assignment.partner.full_name if req.assignment.partner else None,
             partner_phone=req.assignment.partner.phone if req.assignment.partner else None,
             assigned_at=req.assignment.assigned_at,
-            payout_amount=req.assignment.payout_amount,
-            payout_status=req.assignment.payout_status,
+            pickup_fee=req.assignment.pickup_fee,
+            pickup_fee_status=req.assignment.pickup_fee_status,
         )
 
     history = [StatusHistoryOut.model_validate(h) for h in req.history]
     rating = RatingOut.model_validate(req.rating) if req.rating else None
+
+    # Build AddressBrief from the inline snapshot fields
+    address = AddressBrief(
+        street=req.pickup_street,
+        city=req.pickup_city,
+        state=req.pickup_state,
+        pincode=req.pickup_pincode,
+        lat=req.pickup_lat,
+        lng=req.pickup_lng,
+    ) if req.pickup_street else None
 
     return CollectionRequestOut(
         id=req.id,
@@ -89,11 +99,17 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
         preferred_date=req.preferred_date,
         notes=req.notes,
         pickup_otp=req.pickup_otp,
-        payment_method=getattr(req, 'payment_method', 'ONLINE'),
-        consumer_upi_id=getattr(req, 'consumer_upi_id', None),
+        payment_method=req.payment_method,
+        consumer_upi_id=req.consumer_upi_id,
         created_at=req.created_at,
         updated_at=req.updated_at,
-        address=AddressBrief.model_validate(req.address) if req.address else None,
+        address=address,
+        pickup_street=req.pickup_street,
+        pickup_city=req.pickup_city,
+        pickup_state=req.pickup_state,
+        pickup_pincode=req.pickup_pincode,
+        pickup_lat=req.pickup_lat,
+        pickup_lng=req.pickup_lng,
         items=items,
         quotation=quotation,
         assignment=assignment,

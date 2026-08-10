@@ -25,7 +25,6 @@ HISTORY_STATUSES = ["AT_CENTRE", "COMPLETED"]
 def _request_query(db: Session):
     return db.query(CollectionRequest).options(
         joinedload(CollectionRequest.consumer),
-        joinedload(CollectionRequest.address),
         joinedload(CollectionRequest.centre),
         joinedload(CollectionRequest.items).joinedload(RequestItem.category),
         joinedload(CollectionRequest.items).joinedload(RequestItem.images),
@@ -65,9 +64,9 @@ def list_available_requests(db: Session = Depends(get_db), user: User = Depends(
     if not partner_profile:
         raise HTTPException(status_code=400, detail="Partner profile not found")
         
-    q = _request_query(db).join(Address, CollectionRequest.address_id == Address.id).filter(
+    q = _request_query(db).filter(
         CollectionRequest.status == "ACCEPTED",
-        Address.city == partner_profile.city
+        CollectionRequest.pickup_city == partner_profile.city
     )
     reqs = q.order_by(CollectionRequest.updated_at.desc()).all()
     return [to_request_out(r) for r in reqs]
@@ -89,14 +88,14 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
         raise HTTPException(status_code=400, detail="This request is no longer available to be accepted")
         
     # ensure it's in their city
-    if req.address.city != partner_profile.city:
+    if req.pickup_city != partner_profile.city:
         raise HTTPException(status_code=400, detail="This request is outside your service city")
         
     from app.utils import generate_otp
     otp = generate_otp()
     payout = get_setting_float(db, "partner_pickup_fee", 40.0)
     
-    db.add(Assignment(request_id=req.id, partner_id=user.id, payout_amount=round(payout, 2)))
+    db.add(Assignment(request_id=req.id, partner_id=user.id, pickup_fee=round(payout, 2)))
     req.status = "ASSIGNED"
     req.pickup_otp = otp
     partner_profile.status = "BUSY"
@@ -122,7 +121,7 @@ def get_request(request_id: int, db: Session = Depends(get_db), user: User = Dep
         
     # Allowed if it is unassigned (ACCEPTED) and in this partner's city
     partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
-    if req.status == "ACCEPTED" and partner_profile and req.address.city == partner_profile.city:
+    if req.status == "ACCEPTED" and partner_profile and req.pickup_city == partner_profile.city:
         return to_request_out(req)
         
     raise HTTPException(status_code=404, detail="Request not found or not available")
@@ -162,7 +161,7 @@ def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends
         for item in req.items:
             weight = item.actual_weight_kg if item.actual_weight_kg is not None else item.estimated_weight_kg
             if item.category:
-                new_material_value += weight * item.category.price_per_kg
+                new_material_value += weight * item.category.base_price_per_kg
         
         req.quotation.material_value = round(new_material_value, 2)
         new_total = new_material_value - req.quotation.handling_charge - req.quotation.pickup_charge
@@ -255,13 +254,13 @@ def earnings(db: Session = Depends(get_db), user: User = Depends(require_partner
 
     pending_assignments = (
         db.query(Assignment)
-        .filter(Assignment.partner_id == user.id, Assignment.payout_status == "PENDING")
+        .filter(Assignment.partner_id == user.id, Assignment.pickup_fee_status == "PENDING")
         .all()
     )
-    pending_total = sum(a.payout_amount for a in pending_assignments)
+    pending_total = sum(a.pickup_fee for a in pending_assignments)
     completed_jobs = (
         db.query(Assignment)
-        .filter(Assignment.partner_id == user.id, Assignment.payout_status == "PAID")
+        .filter(Assignment.partner_id == user.id, Assignment.pickup_fee_status == "PAID")
         .count()
     )
 

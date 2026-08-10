@@ -60,7 +60,8 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
             beneficiary_phone=req.consumer.phone if req.consumer else "",
             remarks="Reloop Consumer Payout",
         )
-        payout.cashfree_response = json.dumps(result)
+        payout.cashfree_status_code = result.get("subCode") or result.get("status")
+        payout.beneficiary_id = result.get("beneficiary_id")
 
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")
@@ -79,7 +80,7 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
     except Exception as e:
         payout.status = "FAILED"
         payout.cashfree_status = "ERROR"
-        payout.cashfree_response = str(e)
+        payout.cashfree_status_code = "EXCEPTION"
         logger.exception("Cashfree API error for request %s", req.id)
 
     db.add(payout)
@@ -123,7 +124,8 @@ def process_partner_payout(db: Session, partner_user_id: int) -> dict:
             beneficiary_phone=user.phone if user else "",
             remarks="Reloop partner payout",
         )
-        payout.cashfree_response = json.dumps(result)
+        payout.cashfree_status_code = result.get("subCode") or result.get("status")
+        payout.beneficiary_id = result.get("beneficiary_id")
 
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")
@@ -143,7 +145,7 @@ def process_partner_payout(db: Session, partner_user_id: int) -> dict:
 
     except Exception as e:
         payout.status = "FAILED"
-        payout.cashfree_response = str(e)
+        payout.cashfree_status_code = "EXCEPTION"
         logger.exception("Cashfree API error for partner %s", partner_user_id)
         db.add(payout)
         db.commit()

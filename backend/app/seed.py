@@ -357,7 +357,9 @@ def run():
 
         # Request 1: Completed (Patna) - 5 days ago
         req1 = CollectionRequest(
-            consumer_id=consumer.id, address_id=addr_patna.id, centre_id=centre_1.id,
+            consumer_id=consumer.id,
+            pickup_street=addr_patna.street, pickup_city=addr_patna.city, pickup_state=addr_patna.state, pickup_pincode=addr_patna.pincode,
+            centre_id=centre_1.id,
             status="COMPLETED", created_at=now - timedelta(days=5), updated_at=now - timedelta(days=4)
         )
         db.add(req1)
@@ -371,7 +373,9 @@ def run():
 
         # Request 2: At Centre (Delhi) - 3 days ago
         req2 = CollectionRequest(
-            consumer_id=consumer.id, address_id=addr_delhi.id, centre_id=centre_2.id,
+            consumer_id=consumer.id,
+            pickup_street=addr_delhi.street, pickup_city=addr_delhi.city, pickup_state=addr_delhi.state, pickup_pincode=addr_delhi.pincode,
+            centre_id=centre_2.id,
             status="AT_CENTRE", created_at=now - timedelta(days=3), updated_at=now - timedelta(days=2)
         )
         db.add(req2)
@@ -384,7 +388,9 @@ def run():
 
         # Request 3: Out for Pickup (Patna) - 1 day ago
         req3 = CollectionRequest(
-            consumer_id=consumer.id, address_id=addr_patna.id, centre_id=centre_1.id,
+            consumer_id=consumer.id,
+            pickup_street=addr_patna.street, pickup_city=addr_patna.city, pickup_state=addr_patna.state, pickup_pincode=addr_patna.pincode,
+            centre_id=centre_1.id,
             status="OUT_FOR_PICKUP", created_at=now - timedelta(days=1), updated_at=now - timedelta(hours=6)
         )
         db.add(req3)
@@ -396,7 +402,9 @@ def run():
 
         # Request 4: Pending Quotation (Delhi) - Today
         req4 = CollectionRequest(
-            consumer_id=consumer.id, address_id=addr_delhi.id, centre_id=None,
+            consumer_id=consumer.id,
+            pickup_street=addr_delhi.street, pickup_city=addr_delhi.city, pickup_state=addr_delhi.state, pickup_pincode=addr_delhi.pincode,
+            centre_id=None,
             status="PENDING", created_at=now, updated_at=now
         )
         db.add(req4)

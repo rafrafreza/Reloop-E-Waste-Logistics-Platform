@@ -131,8 +131,17 @@ class CollectionRequest(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     consumer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    address_id: Mapped[int] = mapped_column(ForeignKey("addresses.id"), nullable=False)
     centre_id: Mapped[int | None] = mapped_column(ForeignKey("centre_profiles.id"), nullable=True)
+
+    # Snapshot of the consumer's address at request creation time.
+    # Stored inline so the consumer can freely delete/edit their address book
+    # without affecting existing requests.
+    pickup_street: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    pickup_city: Mapped[str] = mapped_column(String(100), nullable=False, default="", index=True)
+    pickup_state: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    pickup_pincode: Mapped[str] = mapped_column(String(10), nullable=False, default="")
+    pickup_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pickup_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default="PENDING", index=True)
     preferred_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -146,7 +155,6 @@ class CollectionRequest(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 
     consumer: Mapped["User"] = relationship(foreign_keys=[consumer_id])
-    address: Mapped["Address"] = relationship()
     centre: Mapped["CentreProfile | None"] = relationship()
     items: Mapped[list["RequestItem"]] = relationship(back_populates="request", cascade="all, delete-orphan")
     quotation: Mapped["Quotation | None"] = relationship(back_populates="request", uselist=False, cascade="all, delete-orphan")
@@ -215,9 +223,9 @@ class Assignment(Base):
     assigned_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     # Snapshot of the partner_pickup_fee setting at assignment time, so
     # later fee changes don't retroactively alter historical earnings.
-    payout_amount: Mapped[float] = mapped_column(Float, default=0.0)
-    payout_status: Mapped[str] = mapped_column(String(20), default="PENDING")
-    # PENDING | PAID
+    pickup_fee: Mapped[float] = mapped_column(Float, default=0.0)
+    pickup_fee_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    # PENDING | PAID (settled to partner wallet)
 
     request: Mapped["CollectionRequest"] = relationship(back_populates="assignment")
     partner: Mapped["User"] = relationship()
@@ -335,7 +343,9 @@ class Payout(Base):
     transfer_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, index=True)
     cashfree_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
     # PENDING | SUCCESS | FAILED | REVERSED | REJECTED | ERROR
-    cashfree_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cashfree_status_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # e.g. "SUCCESS", "INVALID_ACCOUNT_FAIL", "INVALID_VPA", "EXCEPTION"
+    beneficiary_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default="PENDING")
     # PENDING | PROCESSING | SUCCESS | FAILED | CASH_COLLECTED

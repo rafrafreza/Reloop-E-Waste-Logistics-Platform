@@ -236,8 +236,8 @@ class AssignmentOut(BaseModel):
     partner_name: str | None = None
     partner_phone: str | None = None
     assigned_at: datetime
-    payout_amount: float = 0.0
-    payout_status: str = "PENDING"
+    pickup_fee: float = 0.0
+    pickup_fee_status: str = "PENDING"
 
     class Config:
         from_attributes = True
@@ -295,7 +295,14 @@ class CollectionRequestOut(BaseModel):
     consumer_upi_id: str | None = None
     created_at: datetime
     updated_at: datetime
+    # Inline address snapshot
     address: AddressBrief | None = None
+    pickup_street: str = ""
+    pickup_city: str = ""
+    pickup_state: str = ""
+    pickup_pincode: str = ""
+    pickup_lat: float | None = None
+    pickup_lng: float | None = None
     items: list[RequestItemOut] = []
     quotation: QuotationOut | None = None
     assignment: AssignmentOut | None = None
@@ -606,6 +613,8 @@ class PayoutOut(BaseModel):
     upi_id: str | None
     transfer_id: str | None
     cashfree_status: str | None
+    cashfree_status_code: str | None = None
+    beneficiary_id: str | None = None
     status: str
     created_at: datetime
     updated_at: datetime

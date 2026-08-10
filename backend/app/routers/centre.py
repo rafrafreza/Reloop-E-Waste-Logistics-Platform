@@ -42,7 +42,6 @@ require_centre = require_role("CENTRE")
 def _request_query(db: Session):
     return db.query(CollectionRequest).options(
         joinedload(CollectionRequest.consumer),
-        joinedload(CollectionRequest.address),
         joinedload(CollectionRequest.centre),
         joinedload(CollectionRequest.items).joinedload(RequestItem.category),
         joinedload(CollectionRequest.items).joinedload(RequestItem.images),
@@ -71,8 +70,7 @@ def list_requests(scope: str = "pending", db: Session = Depends(get_db), user: U
 
     if scope == "pending":
         q = (
-            q.join(Address, CollectionRequest.address_id == Address.id)
-            .filter(CollectionRequest.status == "PENDING", Address.city == centre.city)
+            q.filter(CollectionRequest.status == "PENDING", CollectionRequest.pickup_city == centre.city)
         )
     elif scope == "active":
         q = q.filter(CollectionRequest.centre_id == centre.id, CollectionRequest.status.in_(ACTIVE_STATUSES))
@@ -104,8 +102,8 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "PENDING":
         raise HTTPException(status_code=400, detail="This request has already been quoted or claimed")
-    if req.address.city != centre.city:
-        raise HTTPException(status_code=400, detail="This request is outside your centre's service city")
+    if req.pickup_city != centre.city:
+        raise HTTPException(status_code=403, detail="Request is outside your service city")
 
     material_value = sum(
         item.estimated_weight_kg * item.category.base_price_per_kg for item in req.items
@@ -159,14 +157,14 @@ def complete_request(request_id: int, db: Session = Depends(get_db), user: User 
         partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == req.assignment.partner_id).first()
         if partner_profile:
             partner_profile.status = "AVAILABLE"
-            wallet_credit = req.assignment.payout_amount
+            wallet_credit = req.assignment.pickup_fee
             # If CASH: reimburse the consumer amount the partner paid out of pocket
             if req.payment_method == "CASH" and req.quotation:
                 wallet_credit += req.quotation.total_amount
             partner_profile.total_earnings += wallet_credit
         else:
-            wallet_credit = req.assignment.payout_amount
-        req.assignment.payout_status = "PAID"
+            wallet_credit = req.assignment.pickup_fee
+        req.assignment.pickup_fee_status = "PAID"
         notify(db, req.assignment.partner_id, "Payout settled",
                f"Rs.{wallet_credit:.2f} for request #{req.id} has been added to your wallet.")
 
@@ -258,8 +256,7 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_centre
     total = base.count()
     pending_count = (
         db.query(CollectionRequest)
-        .join(Address, CollectionRequest.address_id == Address.id)
-        .filter(CollectionRequest.status == "PENDING", Address.city == centre.city)
+        .filter(CollectionRequest.status == "PENDING", CollectionRequest.pickup_city == centre.city)
         .count()
     )
     active = base.filter(CollectionRequest.status.in_(ACTIVE_STATUSES)).count()

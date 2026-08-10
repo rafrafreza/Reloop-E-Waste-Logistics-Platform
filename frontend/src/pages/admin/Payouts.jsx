@@ -137,9 +137,21 @@ export default function Payouts() {
                           {p.status}
                         </span>
                         {p.cashfree_status && p.payment_method === "ONLINE" && (
-                          <span className="block text-[10px] mt-1 text-inkfaint font-mono truncate max-w-[120px]">
-                            {p.cashfree_status}
-                          </span>
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            <span className="text-[10px] text-inkfaint font-mono truncate max-w-[120px]">
+                              {p.cashfree_status}
+                            </span>
+                            {p.cashfree_status_code && (
+                              <span className="text-[10px] text-inkfaint font-mono truncate max-w-[120px]">
+                                Code: {p.cashfree_status_code}
+                              </span>
+                            )}
+                            {p.beneficiary_id && (
+                              <span className="text-[10px] text-inkfaint font-mono truncate max-w-[120px]">
+                                Ben: {p.beneficiary_id}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-inkfaint whitespace-nowrap">

@@ -23,7 +23,6 @@ require_consumer = require_role("CONSUMER")
 def _request_query(db: Session):
     return db.query(CollectionRequest).options(
         joinedload(CollectionRequest.consumer),
-        joinedload(CollectionRequest.address),
         joinedload(CollectionRequest.centre),
         joinedload(CollectionRequest.items).joinedload(RequestItem.category),
         joinedload(CollectionRequest.items).joinedload(RequestItem.images),
@@ -81,12 +80,8 @@ def delete_address(address_id: int, db: Session = Depends(get_db), user: User = 
     addr = db.get(Address, address_id)
     if not addr or addr.user_id != user.id:
         raise HTTPException(status_code=404, detail="Address not found")
-    in_use = db.query(CollectionRequest).filter(
-        CollectionRequest.address_id == address_id,
-        CollectionRequest.status.notin_(["COMPLETED", "CANCELLED", "REJECTED"]),
-    ).first()
-    if in_use:
-        raise HTTPException(status_code=400, detail="Cannot delete an address used by an active request")
+    # Address data is already snapshotted into existing requests, so we can
+    # safely delete the address row at any time.
     db.delete(addr)
     db.commit()
 
@@ -109,7 +104,13 @@ def create_request(payload: CollectionRequestCreate, db: Session = Depends(get_d
 
     req = CollectionRequest(
         consumer_id=user.id,
-        address_id=payload.address_id,
+        # Snapshot address fields so the request is never broken by address edits/deletes
+        pickup_street=addr.street,
+        pickup_city=addr.city,
+        pickup_state=addr.state,
+        pickup_pincode=addr.pincode,
+        pickup_lat=addr.lat,
+        pickup_lng=addr.lng,
         status="PENDING",
         preferred_date=payload.preferred_date,
         notes=payload.notes,

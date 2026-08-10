@@ -163,16 +163,14 @@ def analytics(db: Session = Depends(get_db), user: User = Depends(require_admin)
     for city_name in sorted(city_names):
         req_count = (
             db.query(CollectionRequest)
-            .join(Address, CollectionRequest.address_id == Address.id)
-            .filter(Address.city == city_name)
+            .filter(CollectionRequest.pickup_city == city_name)
             .count()
         )
         
         reqs_in_city = (
             db.query(CollectionRequest)
-            .join(Address, CollectionRequest.address_id == Address.id)
             .options(joinedload(CollectionRequest.items))
-            .filter(Address.city == city_name)
+            .filter(CollectionRequest.pickup_city == city_name)
             .all()
         )
         city_weight = sum(
@@ -347,7 +345,6 @@ def list_partners(db: Session = Depends(get_db), user: User = Depends(require_ad
 def list_all_requests(status: str | None = None, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     q = db.query(CollectionRequest).options(
         joinedload(CollectionRequest.consumer),
-        joinedload(CollectionRequest.address),
         joinedload(CollectionRequest.centre),
         joinedload(CollectionRequest.items).joinedload(RequestItem.category),
         joinedload(CollectionRequest.items).joinedload(RequestItem.images),
@@ -387,7 +384,7 @@ def revenue(db: Session = Depends(get_db), user: User = Depends(require_admin)):
         if not r.quotation:
             continue
         q = r.quotation
-        payout = r.assignment.payout_amount if r.assignment else 0.0
+        payout = r.assignment.pickup_fee if r.assignment else 0.0
         month_key = r.updated_at.strftime("%Y-%m")
         city_key = r.centre.city if r.centre else "Unknown"
 
@@ -535,19 +532,11 @@ def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Dep
     if not payout.upi_id:
         raise HTTPException(status_code=400, detail="No UPI ID associated with this payout")
         
-    if payout.cashfree_response:
-        try:
-            resp_data = json.loads(payout.cashfree_response)
-            cf_code = resp_data.get("status_code") or resp_data.get("subCode")
-            if cf_code in ["INVALID_ACCOUNT_FAIL", "INVALID_VPA", "BENEFICIARY_OR_VPA_NOT_RESOLVED"]:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Cannot retry: the user's UPI ID is invalid. Please obtain a correct UPI ID from the user."
-                )
-        except HTTPException:
-            raise
-        except Exception:
-            pass
+    if payout.cashfree_status_code in ["INVALID_ACCOUNT_FAIL", "INVALID_VPA", "BENEFICIARY_OR_VPA_NOT_RESOLVED"]:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot retry: the user's UPI ID is invalid. Please obtain a correct UPI ID from the user."
+        )
 
     transfer_id = generate_transfer_id("RLR")  # RLR = Reloop Retry
     payout.transfer_id = transfer_id
@@ -563,7 +552,8 @@ def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Dep
             beneficiary_phone=payout_user.phone if payout_user else "",
             remarks="Reloop Payout Retry",
         )
-        payout.cashfree_response = json.dumps(result)
+        payout.cashfree_status_code = result.get("subCode") or result.get("status")
+        payout.beneficiary_id = result.get("beneficiary_id")
 
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")
@@ -581,7 +571,7 @@ def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Dep
         raise
     except Exception as e:
         payout.status = "FAILED"
-        payout.cashfree_response = str(e)
+        payout.cashfree_status_code = "EXCEPTION"
         db.commit()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -603,7 +593,8 @@ def check_payout_status(payout_id: int, db: Session = Depends(get_db), user: Use
 
     if result.get("http_status") == 200:
         import json
-        payout.cashfree_response = json.dumps(result)
+        payout.cashfree_status_code = result.get("subCode") or result.get("status")
+        payout.beneficiary_id = result.get("beneficiary_id")
         cf_status = result.get("status")
         if cf_status:
             payout.cashfree_status = cf_status
