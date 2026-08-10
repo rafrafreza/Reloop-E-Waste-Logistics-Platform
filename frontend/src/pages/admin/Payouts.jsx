@@ -10,6 +10,7 @@ export default function Payouts() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
   const [acting, setActing] = useState(false);
 
   const load = async () => {
@@ -81,6 +82,16 @@ export default function Payouts() {
 
   if (!payouts && loading) return <PageLoader />;
 
+  const filteredPayouts = (payouts || []).filter((p) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (p.transfer_id && p.transfer_id.toLowerCase().includes(q)) ||
+      (p.user_name && p.user_name.toLowerCase().includes(q)) ||
+      (p.upi_id && p.upi_id.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div>
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
@@ -88,7 +99,14 @@ export default function Payouts() {
           <h1 className="text-xl font-semibold text-ink">Payouts</h1>
           <p className="mt-1 text-sm text-inkfaint">Manage consumer and partner payouts.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <input 
+            type="text" 
+            placeholder="Search transfer ID, name or UPI..." 
+            className="input w-full sm:w-auto py-1.5"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
           <select 
             className="input w-auto py-1.5" 
             value={typeFilter} 
@@ -120,7 +138,7 @@ export default function Payouts() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-ink/10 bg-paperdim text-xs font-medium text-inkfaint uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Transfer ID</th>
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Amount</th>
@@ -131,12 +149,12 @@ export default function Payouts() {
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10">
-              {(payouts || []).length === 0 ? (
+              {filteredPayouts.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="px-4 py-8 text-center text-inkfaint">No payouts found matching filters.</td>
                 </tr>
               ) : (
-                (payouts || []).map((p) => {
+                filteredPayouts.map((p) => {
                   let statusColor = "bg-ink/10 text-ink";
                   if (p.status === "SUCCESS") statusColor = "bg-circuitlight text-circuitdark";
                   else if (p.status === "FAILED") statusColor = "bg-bricklight text-brick";
@@ -145,7 +163,7 @@ export default function Payouts() {
 
                   return (
                     <tr key={p.id} className="hover:bg-paperdim/50">
-                      <td className="px-4 py-3 font-mono text-inkfaint">#{p.id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-inkfaint">{p.transfer_id || "-"}</td>
                       <td className="px-4 py-3 font-medium text-ink">{p.user_name}</td>
                       <td className="px-4 py-3 text-inkfaint text-xs">{p.user_role}</td>
                       <td className="px-4 py-3 font-mono text-circuit">₹{p.amount.toFixed(2)}</td>
