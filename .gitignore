@@ -20,4 +20,6 @@ frontend/.env
 *.log
 .vscode/
 .idea/
+.agent/skills/cashfree-skills/
+.github/skills/cashfree-skills/
 *.txt
