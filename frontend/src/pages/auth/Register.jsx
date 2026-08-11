@@ -48,6 +48,10 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!/^\d{10}$/.test(form.phone)) {
+      setError("Phone number must be exactly 10 digits");
+      return;
+    }
     setLoading(true);
     try {
       const payload = { ...form, role };
@@ -125,8 +129,20 @@ export default function Register() {
             <input required type="email" className="input" value={form.email} onChange={update("email")} placeholder="you@example.com" />
           </div>
           <div>
-            <label className="label">Phone</label>
-            <input className="input" value={form.phone} onChange={update("phone")} placeholder="9XXXXXXXXX" />
+            <label className="label">Phone number</label>
+            <input
+              required
+              type="tel"
+              pattern="[0-9]{10}"
+              maxLength={10}
+              className="input font-mono"
+              value={form.phone}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setForm((f) => ({ ...f, phone: val }));
+              }}
+              placeholder="10-digit number"
+            />
           </div>
         </div>
         <div>

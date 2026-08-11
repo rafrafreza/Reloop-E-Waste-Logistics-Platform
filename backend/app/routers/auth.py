@@ -25,6 +25,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists")
 
+    existing_phone = db.query(User).filter(User.phone == payload.phone).first()
+    if existing_phone:
+        raise HTTPException(status_code=400, detail="An account with this phone number already exists")
+
     if payload.role in ("PARTNER", "CENTRE") and not payload.city:
         raise HTTPException(status_code=400, detail="City is required for this role")
     if payload.role == "CENTRE" and not payload.centre_name:
@@ -152,6 +156,9 @@ def update_profile(payload: ProfileUpdate, db: Session = Depends(get_db), curren
     if payload.full_name is not None:
         current_user.full_name = payload.full_name
     if payload.phone is not None:
+        existing_phone = db.query(User).filter(User.phone == payload.phone, User.id != current_user.id).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="An account with this phone number already exists")
         current_user.phone = payload.phone
 
     if current_user.role == "PARTNER":

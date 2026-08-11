@@ -8,6 +8,7 @@ import Stamp from "../../components/ui/Stamp";
 import Timeline from "../../components/Timeline";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
+import { formatDate } from "../../utils/date";
 
 const TERMINAL_STATUSES = ["COMPLETED", "CANCELLED", "REJECTED"];
 
@@ -124,6 +125,9 @@ export default function RequestDetail() {
             <span className="font-medium text-ink">Pickup address: </span>
             {request.address.street}, {request.address.city}, {request.address.state} {request.address.pincode}
           </p>
+        )}
+        {request.preferred_date && (
+          <p className="mt-1 text-sm text-inkfaint"><span className="font-medium text-ink">Preferred pickup date: </span><span className="font-medium text-circuit">{formatDate(request.preferred_date)}</span></p>
         )}
         {request.centre_name && <p className="mt-1 text-sm text-inkfaint"><span className="font-medium text-ink">Centre: </span>{request.centre_name}</p>}
         {request.notes && <p className="mt-1 text-sm text-inkfaint"><span className="font-medium text-ink">Notes: </span>{request.notes}</p>}

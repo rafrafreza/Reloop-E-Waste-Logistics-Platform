@@ -9,6 +9,7 @@ import Timeline from "../../components/Timeline";
 import useDefaultCharges from "../../hooks/useDefaultCharges";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
+import { formatDate } from "../../utils/date";
 
 export default function CentreRequestDetail() {
   const { id } = useParams();
@@ -70,6 +71,9 @@ export default function CentreRequestDetail() {
           <p><span className="font-medium text-ink">Consumer: </span><span className="text-inkfaint">{request.consumer_name} {request.consumer_phone && `· ${request.consumer_phone}`}</span></p>
           {request.address && (
             <p><span className="font-medium text-ink">Address: </span><span className="text-inkfaint">{request.address.street}, {request.address.city}, {request.address.state} {request.address.pincode}</span></p>
+          )}
+          {request.preferred_date && (
+            <p><span className="font-medium text-ink">Preferred Pickup Date: </span><span className="font-medium text-circuit">{formatDate(request.preferred_date)}</span></p>
           )}
           {request.notes && <p><span className="font-medium text-ink">Notes: </span><span className="text-inkfaint">{request.notes}</span></p>}
         </div>

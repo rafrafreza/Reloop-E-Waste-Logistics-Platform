@@ -1,4 +1,6 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_role
@@ -64,9 +66,14 @@ def list_available_requests(db: Session = Depends(get_db), user: User = Depends(
     if not partner_profile:
         raise HTTPException(status_code=400, detail="Partner profile not found")
         
+    today = datetime.now(timezone.utc).date()
     q = _request_query(db).filter(
         CollectionRequest.status == "ACCEPTED",
-        CollectionRequest.pickup_city == partner_profile.city
+        CollectionRequest.pickup_city == partner_profile.city,
+        or_(
+            CollectionRequest.preferred_date == None,
+            func.date(CollectionRequest.preferred_date) <= today
+        )
     )
     reqs = q.order_by(CollectionRequest.updated_at.desc()).all()
     return [to_request_out(r) for r in reqs]
@@ -86,6 +93,9 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "ACCEPTED":
         raise HTTPException(status_code=400, detail="This request is no longer available to be accepted")
+
+    if req.preferred_date and req.preferred_date.date() > datetime.now(timezone.utc).date():
+        raise HTTPException(status_code=400, detail="This pickup request is scheduled for a future date and cannot be accepted yet")
         
     # ensure it's in their city
     if req.pickup_city != partner_profile.city:

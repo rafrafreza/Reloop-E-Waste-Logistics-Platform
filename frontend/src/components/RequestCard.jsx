@@ -26,6 +26,12 @@ export default function RequestCard({ request, basePath, extra }) {
           </p>
         )}
 
+        {request.preferred_date && (
+          <p className="mt-1 text-xs font-medium text-circuit">
+            Preferred Pickup Date: {formatDate(request.preferred_date)}
+          </p>
+        )}
+
         <p className="mt-2 field-label">Logged {formatDate(request.created_at)}</p>
       </div>
 
