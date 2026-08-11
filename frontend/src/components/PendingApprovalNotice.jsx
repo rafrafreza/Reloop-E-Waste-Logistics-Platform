@@ -1,4 +1,4 @@
-export default function PendingApprovalNotice({ heading = "Application under review" }) {
+export default function PendingApprovalNotice({ heading = "Your account is under review, Please wait for approval." }) {
   return (
     <div className="ticket p-6 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-amber bg-amberlight">

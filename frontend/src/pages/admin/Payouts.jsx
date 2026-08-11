@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { adminApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
-import { format } from "date-fns";
+import { formatDate } from "../../utils/date";
 
 export default function Payouts() {
   const [payouts, setPayouts] = useState(null);
@@ -184,7 +184,7 @@ export default function Payouts() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-inkfaint whitespace-nowrap">
-                        {format(new Date(p.created_at), "MMM d, yyyy")}
+                        {formatDate(p.created_at)}
                       </td>
                       <td className="px-4 py-3">
                         {p.status === "FAILED" && (
