@@ -89,6 +89,8 @@ def get_request(request_id: int, db: Session = Depends(get_db), user: User = Dep
     req = _request_query(db).filter(CollectionRequest.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+    if req.status == "CANCELLED" and (req.centre_id is None or req.quotation is None):
+        raise HTTPException(status_code=404, detail="Request was cancelled by user before quotation")
     if req.centre_id is not None and req.centre_id != centre.id:
         raise HTTPException(status_code=403, detail="This request belongs to another centre")
     return to_request_out(req)
@@ -100,6 +102,8 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
     req = _request_query(db).filter(CollectionRequest.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+    if req.status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="This request was cancelled by the user and cannot be quoted")
     if req.status != "PENDING":
         raise HTTPException(status_code=400, detail="This request has already been quoted or claimed")
     if req.pickup_city != centre.city:

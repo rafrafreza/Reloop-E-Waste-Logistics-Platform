@@ -77,7 +77,7 @@ export default function Login() {
             {location.state?.registered && (
               <Banner kind={location.state.pending ? "info" : "success"}>
                 {location.state.pending
-                  ? "Account created! Your account is pending admin approval before you can sign in."
+                  ? "Your account is under review, Please wait for approval."
                   : "Account created successfully! Please sign in to continue."}
               </Banner>
             )}

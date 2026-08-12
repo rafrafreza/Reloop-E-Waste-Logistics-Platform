@@ -8,6 +8,7 @@ import Stamp from "../../components/ui/Stamp";
 import Timeline from "../../components/Timeline";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
+import { formatDate } from "../../utils/date";
 import MapViewer from "../../components/MapViewer";
 
 export default function PartnerRequestDetail() {
@@ -73,6 +74,9 @@ export default function PartnerRequestDetail() {
 
         <div className="mt-4 space-y-1 text-sm">
           <p><span className="font-medium text-ink">Consumer: </span><span className="text-inkfaint">{request.consumer_name} {request.consumer_phone && `· ${request.consumer_phone}`}</span></p>
+          {request.preferred_date && (
+            <p><span className="font-medium text-ink">Preferred Pickup Date: </span><span className="font-medium text-circuit">{formatDate(request.preferred_date)}</span></p>
+          )}
           {request.address && (
             <div>
               <p><span className="font-medium text-ink">Address: </span><span className="text-inkfaint">{request.address.street}, {request.address.city}, {request.address.state} {request.address.pincode}</span></p>

@@ -6,6 +6,7 @@ import RequestCard from "../../components/RequestCard";
 import useDefaultCharges from "../../hooks/useDefaultCharges";
 import ItemPhotos from "../../components/ItemPhotos";
 import { formatDims } from "../../utils/formatDims";
+import { formatDate } from "../../utils/date";
 import PaginatedList from "../../components/PaginatedList";
 
 export default function IncomingRequests() {
@@ -40,6 +41,7 @@ export default function IncomingRequests() {
       await load();
     } catch (err) {
       setError(apiErrorMessage(err, "Could not submit quotation"));
+      await load();
     } finally {
       setSaving(false);
     }
@@ -73,6 +75,11 @@ export default function IncomingRequests() {
         {quoting && (
           <form onSubmit={submitQuote} className="space-y-4">
             {error && <Banner kind="error">{error}</Banner>}
+            {quoting.preferred_date && (
+              <p className="text-xs font-medium text-circuit">
+                Preferred Pickup Date: {formatDate(quoting.preferred_date)}
+              </p>
+            )}
             <div>
               <p className="field-label">Items</p>
               <ul className="mt-2 space-y-2 text-sm text-ink">

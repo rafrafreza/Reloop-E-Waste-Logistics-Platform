@@ -55,14 +55,14 @@ export default function Users() {
                 <td className="px-4 py-3 font-mono text-xs text-inkfaint">{u.role}</td>
                 <td className="px-4 py-3 text-inkfaint">{formatDate(u.created_at)}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${u.is_active ? "text-circuit bg-circuitlight border-circuit/40" : "text-brick bg-bricklight border-brick/40"}`}>
-                    {u.is_active ? "Active" : "Disabled"}
+                  <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${u.is_active ? "text-circuit bg-circuitlight border-circuit/40" : ["PARTNER", "CENTRE"].includes(u.role) ? "text-amber bg-amberlight border-amber/40" : "text-brick bg-bricklight border-brick/40"}`}>
+                    {u.is_active ? "Active" : ["PARTNER", "CENTRE"].includes(u.role) ? "Pending Approval" : "Disabled"}
                   </span>
                 </td>
                 <td className="px-4 py-3">
                   {u.role !== "ADMIN" && (
                     <button onClick={() => toggle(u.id)} className="text-xs text-circuit hover:underline">
-                      {u.is_active ? "Deactivate" : "Activate"}
+                      {u.is_active ? "Deactivate" : ["PARTNER", "CENTRE"].includes(u.role) ? "Approve" : "Activate"}
                     </button>
                   )}
                 </td>

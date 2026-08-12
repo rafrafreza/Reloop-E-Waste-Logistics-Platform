@@ -14,7 +14,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     full_name: str = Field(min_length=2, max_length=150)
-    phone: str | None = None
+    phone: str
     role: str = "CONSUMER"
 
     # Partner-only
@@ -26,6 +26,16 @@ class RegisterRequest(BaseModel):
     city: str | None = None
     # Optional referral code entered at signup
     referral_code: str | None = None
+
+    @field_validator("phone")
+    @classmethod
+    def phone_must_be_ten_digits(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Phone number is required")
+        v = v.strip()
+        if not v.isdigit() or len(v) != 10:
+            raise ValueError("Phone number must be exactly 10 digits")
+        return v
 
     @field_validator("role")
     @classmethod
@@ -89,6 +99,16 @@ class ProfileUpdate(BaseModel):
     # Partner + Centre
     city: str | None = None
     upi_id: str | None = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v.isdigit() or len(v) != 10:
+            raise ValueError("Phone number must be exactly 10 digits")
+        return v
 
 
 class PasswordChange(BaseModel):
