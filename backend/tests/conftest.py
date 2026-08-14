@@ -87,3 +87,69 @@ def partner_headers(client, db_session):
     db_session.commit()
     res = client.post("/api/auth/login", json={"email": "partner@test.com", "password": "pass123"})
     return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+# ---------------------------------------------------------------------------
+# Shared lifecycle fixtures — composable building blocks for integration & E2E
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def category(client, admin_headers):
+    """Creates a test e-waste category (Mobile Phone, ₹150/kg)."""
+    resp = client.post("/api/admin/categories", json={
+        "name": "Mobile Phone", "icon": "📱",
+        "base_price_per_kg": 150.0, "is_active": True,
+        "co2_factor_kg": 0.5
+    }, headers=admin_headers)
+    assert resp.status_code == 201
+    return resp.json()
+
+@pytest.fixture
+def consumer_address(client, consumer_headers):
+    """Creates a test address in Delhi for the consumer."""
+    resp = client.post("/api/consumer/addresses", json={
+        "label": "Home", "street": "123 Test St",
+        "city": "Delhi", "state": "Delhi",
+        "pincode": "110001", "lat": 28.6139, "lng": 77.2090,
+        "is_default": True
+    }, headers=consumer_headers)
+    assert resp.status_code == 201
+    return resp.json()
+
+@pytest.fixture
+def collection_request(client, consumer_headers, consumer_address, category):
+    """Creates a PENDING collection request with one item."""
+    resp = client.post("/api/consumer/requests", json={
+        "address_id": consumer_address["id"],
+        "preferred_date": "2026-08-15",
+        "notes": "Test pickup",
+        "items": [{
+            "category_id": category["id"],
+            "description": "Old phone",
+            "quantity": 1,
+            "estimated_weight_kg": 0.5,
+            "image_urls": []
+        }]
+    }, headers=consumer_headers)
+    assert resp.status_code == 201
+    return resp.json()
+
+@pytest.fixture
+def quoted_request(client, centre_headers, collection_request):
+    """Creates a QUOTED request (centre has provided a quote)."""
+    req_id = collection_request["id"]
+    resp = client.post(f"/api/centre/requests/{req_id}/quote", json={
+        "handling_charge": 20.0,
+        "pickup_charge": 30.0
+    }, headers=centre_headers)
+    assert resp.status_code == 200
+    return resp.json()
+
+@pytest.fixture
+def accepted_request(client, consumer_headers, quoted_request):
+    """Creates an ACCEPTED request (consumer accepted the quote with CASH)."""
+    req_id = quoted_request["id"]
+    resp = client.post(f"/api/consumer/requests/{req_id}/accept-quote", json={
+        "payment_method": "CASH"
+    }, headers=consumer_headers)
+    assert resp.status_code == 200
+    return resp.json()

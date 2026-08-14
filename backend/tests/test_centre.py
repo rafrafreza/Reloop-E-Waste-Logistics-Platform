@@ -74,3 +74,115 @@ def test_centre_cannot_view_or_quote_cancelled_request(client, consumer_headers,
         "handling_charge": 100.0, "pickup_charge": 50.0
     }, headers=centre_headers)
     assert quote_res.status_code == 400
+    
+from app.models import CollectionRequest
+from unittest.mock import patch
+
+def test_create_quotation_success(client, centre_headers, collection_request, db_session):
+    payload = {
+        "handling_charge": 50.0,
+        "pickup_charge": 100.0
+    }
+    response = client.post(f"/api/centre/requests/{collection_request["id"]}/quote", json=payload, headers=centre_headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "QUOTED"
+    assert response.json()["quotation"]["material_value"] == 75.0
+
+def test_create_quotation_wrong_status(client, centre_headers, quoted_request):
+    payload = {
+        "handling_charge": 50.0,
+        "pickup_charge": 100.0
+    }
+    response = client.post(f"/api/centre/requests/{quoted_request["id"]}/quote", json=payload, headers=centre_headers)
+    assert response.status_code == 400
+
+@patch("app.cashfree_payout.process_consumer_payout")
+def test_complete_request(mock_payout, client, centre_headers, partner_headers, accepted_request, db_session):
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/accept", headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/start", headers=partner_headers)
+    req_db = db_session.query(CollectionRequest).filter(CollectionRequest.id == accepted_request["id"]).first()
+    otp = req_db.pickup_otp
+    item_id = req_db.items[0].id
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/verify-otp", json={"otp": otp, "items": [{"item_id": item_id, "actual_weight_kg": 10.0}]}, headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/deliver", headers=partner_headers)
+    
+    response = client.post(f"/api/centre/requests/{accepted_request["id"]}/complete", headers=centre_headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "COMPLETED"
+
+def test_complete_request_wrong_status(client, centre_headers, accepted_request):
+    response = client.post(f"/api/centre/requests/{accepted_request["id"]}/complete", headers=centre_headers)
+    assert response.status_code == 400
+
+@patch("app.cashfree_payout.process_consumer_payout")
+def test_list_inventory(mock_payout, client, centre_headers, partner_headers, accepted_request, db_session):
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/accept", headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/start", headers=partner_headers)
+    req_db = db_session.query(CollectionRequest).filter(CollectionRequest.id == accepted_request["id"]).first()
+    otp = req_db.pickup_otp
+    item_id = req_db.items[0].id
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/verify-otp", json={"otp": otp, "items": [{"item_id": item_id, "actual_weight_kg": 10.0}]}, headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/deliver", headers=partner_headers)
+    
+    response = client.get("/api/centre/inventory", headers=centre_headers)
+    assert response.status_code == 200
+    assert len(response.json()) > 0
+    assert response.json()[0]["status"] == "IN_STORAGE"
+
+@patch("app.cashfree_payout.process_consumer_payout")
+def test_dispatch_inventory(mock_payout, client, centre_headers, partner_headers, accepted_request, db_session):
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/accept", headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/start", headers=partner_headers)
+    req_db = db_session.query(CollectionRequest).filter(CollectionRequest.id == accepted_request["id"]).first()
+    otp = req_db.pickup_otp
+    item_id = req_db.items[0].id
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/verify-otp", json={"otp": otp, "items": [{"item_id": item_id, "actual_weight_kg": 10.0}]}, headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/deliver", headers=partner_headers)
+    
+    inv_response = client.get("/api/centre/inventory", headers=centre_headers)
+    inv_item_id = inv_response.json()[0]["id"]
+    
+    response = client.post("/api/centre/inventory/dispatch", json={"item_ids": [inv_item_id], "recycler_name": "ABC Recyclers"}, headers=centre_headers)
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "DISPATCHED"
+
+@patch("app.cashfree_payout.process_consumer_payout")
+def test_recycle_inventory(mock_payout, client, centre_headers, partner_headers, accepted_request, db_session):
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/accept", headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/start", headers=partner_headers)
+    req_db = db_session.query(CollectionRequest).filter(CollectionRequest.id == accepted_request["id"]).first()
+    otp = req_db.pickup_otp
+    item_id = req_db.items[0].id
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/verify-otp", json={"otp": otp, "items": [{"item_id": item_id, "actual_weight_kg": 10.0}]}, headers=partner_headers)
+    client.post(f"/api/partner/requests/{accepted_request["id"]}/deliver", headers=partner_headers)
+    
+    inv_response = client.get("/api/centre/inventory", headers=centre_headers)
+    inv_item_id = inv_response.json()[0]["id"]
+    
+    client.post("/api/centre/inventory/dispatch", json={"item_ids": [inv_item_id], "recycler_name": "ABC Recyclers"}, headers=centre_headers)
+    
+    response = client.post("/api/centre/inventory/recycle", json={"item_ids": [inv_item_id]}, headers=centre_headers)
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "RECYCLED"
+
+def test_capacity_stats(client, centre_headers):
+    response = client.get("/api/centre/capacity", headers=centre_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert "capacity_kg" in data
+    assert "used_kg" in data
+    assert "percent_used" in data
+
+def test_centre_analytics(client, centre_headers):
+    response = client.get("/api/centre/analytics", headers=centre_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert "inventory_status_breakdown" in data
+    assert "category_breakdown" in data
+    assert "processing_trends" in data
+    assert "partner_status_distribution" in data
+
+def test_get_request_detail(client, centre_headers, collection_request):
+    response = client.get(f"/api/centre/requests/{collection_request["id"]}", headers=centre_headers)
+    assert response.status_code == 200
+    assert response.json()["id"] == collection_request["id"]
