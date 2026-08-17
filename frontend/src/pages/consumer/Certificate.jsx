@@ -23,7 +23,7 @@ export default function Certificate() {
     );
   }
 
-  const totalWeight = request.items.reduce((sum, i) => sum + (i.actual_weight_kg || i.estimated_weight_kg), 0);
+  const totalWeight = request.items.reduce((sum, i) => sum + (i.actual_weight_kg || i.estimated_weight_kg) * i.quantity, 0);
   const completedEntry = [...request.history].reverse().find((h) => h.status === "COMPLETED");
   const completedDate = completedEntry ? completedEntry.created_at : request.updated_at;
 

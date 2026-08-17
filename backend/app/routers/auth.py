@@ -77,13 +77,19 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
             status="AVAILABLE",
         ))
 
+    notif_payload = None
     if referrer:
         referrer.reward_points += 50
-        notify(db, referrer.id, "Referral bonus earned",
+        notif_payload = notify(db, referrer.id, "Referral bonus earned",
                f"{user.full_name} joined Reloop using your referral code. You earned 50 points!")
 
     db.commit()
     db.refresh(user)
+    
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
+
 
     token = create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))

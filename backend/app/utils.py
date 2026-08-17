@@ -19,8 +19,19 @@ def generate_otp() -> str:
     return f"{random.randint(0, 999999):06d}"
 
 
-def notify(db: Session, user_id: int, title: str, message: str, link: str | None = None) -> None:
-    db.add(Notification(user_id=user_id, title=title, message=message, link=link))
+def notify(db: Session, user_id: int, title: str, message: str, link: str | None = None) -> dict:
+    notif = Notification(user_id=user_id, title=title, message=message, link=link)
+    db.add(notif)
+    db.flush()
+    return {
+        "id": notif.id,
+        "user_id": notif.user_id,
+        "title": notif.title,
+        "message": notif.message,
+        "link": notif.link,
+        "is_read": notif.is_read,
+        "created_at": notif.created_at.isoformat()
+    }
 
 
 def log_status(db: Session, request_id: int, status: str, remarks: str | None = None) -> None:

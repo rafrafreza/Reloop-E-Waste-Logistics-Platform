@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import (
     Address,
     Category,
+    CentreProfile,
     CollectionRequest,
     PartnerProfile,
     Rating,
@@ -135,7 +136,35 @@ def create_request(payload: CollectionRequestCreate, db: Session = Depends(get_d
             db.add(RequestItemImage(request_item_id=request_item.id, url=url))
 
     log_status(db, req.id, "PENDING", "Request created by consumer")
+
+    # Notify all centres in the same city
+    from app.utils import notify
+    notif_payloads = []
+    total_items = sum(item.quantity for item in payload.items)
+    total_weight = sum(item.estimated_weight_kg * item.quantity for item in payload.items)
+    city_centres = db.query(CentreProfile).filter(CentreProfile.city == addr.city).all()
+    for centre in city_centres:
+        notif_payloads.append(
+            notify(db, centre.user_id, "New pickup request",
+                   f"New request #{req.id} in {addr.city} — {total_items} item(s), ~{total_weight:.1f} kg",
+                   link=f"/centre/requests/{req.id}"))
+
+    # Notify all available pickup partners in the same city
+    city_partners = db.query(PartnerProfile).filter(
+        PartnerProfile.city == addr.city,
+        PartnerProfile.status == "AVAILABLE",
+    ).all()
+    for partner in city_partners:
+        notif_payloads.append(
+            notify(db, partner.user_id, "New pickup request nearby",
+                   f"New request #{req.id} in {addr.city} — {total_items} item(s), ~{total_weight:.1f} kg",
+                   link=f"/partner/available"))
+
     db.commit()
+    from app.websocket import manager
+    for n in notif_payloads:
+        if n:
+            manager.push_sync(n["user_id"], n)
 
     return to_request_out(_get_owned_request(db, req.id, user.id))
 
@@ -174,13 +203,20 @@ def accept_quote(
     req.quotation.status = "ACCEPTED"
     log_status(db, req.id, "ACCEPTED", "Consumer accepted the quotation")
 
-    if req.centre:
-        from app.utils import notify
-        notify(db, req.centre.user_id, "Quotation accepted",
-               f"Request #{req.id} quotation was accepted. Please assign a pickup partner.",
-               link=f"/centre/requests/{req.id}")
+    notif_payload = None
+    if req.centre_id:
+        from app.models import CentreProfile
+        centre_profile = db.get(CentreProfile, req.centre_id)
+        if centre_profile:
+            from app.utils import notify
+            notif_payload = notify(db, centre_profile.user_id, "Quotation accepted",
+                   f"Request #{req.id} quotation was accepted. Please assign a pickup partner.",
+                   link=f"/centre/requests/{req.id}")
 
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return to_request_out(_get_owned_request(db, request_id, user.id))
 
 
@@ -194,12 +230,19 @@ def reject_quote(request_id: int, db: Session = Depends(get_db), user: User = De
     req.quotation.status = "REJECTED"
     log_status(db, req.id, "REJECTED", "Consumer rejected the quotation")
 
-    if req.centre:
-        from app.utils import notify
-        notify(db, req.centre.user_id, "Quotation rejected",
-               f"Request #{req.id} quotation was rejected by the consumer.")
+    notif_payload = None
+    if req.centre_id:
+        from app.models import CentreProfile
+        centre_profile = db.get(CentreProfile, req.centre_id)
+        if centre_profile:
+            from app.utils import notify
+            notif_payload = notify(db, centre_profile.user_id, "Quotation rejected",
+                   f"Request #{req.id} quotation was rejected by the consumer.")
 
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return to_request_out(_get_owned_request(db, request_id, user.id))
 
 
@@ -228,10 +271,10 @@ def my_impact(db: Session = Depends(get_db), user: User = Depends(require_consum
     item_count = 0
     for r in completed:
         for item in r.items:
-            weight = item.actual_weight_kg or item.estimated_weight_kg
+            weight_per_item = item.actual_weight_kg or item.estimated_weight_kg
             co2_factor = item.category.co2_factor_kg if item.category else 1.5
-            total_weight += weight
-            total_co2 += weight * co2_factor
+            total_weight += weight_per_item * item.quantity
+            total_co2 += weight_per_item * item.quantity * co2_factor
             item_count += item.quantity
 
     return ImpactStats(

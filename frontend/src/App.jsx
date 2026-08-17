@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { WebSocketProvider } from "./context/WebSocketContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicLayout from "./components/layout/PublicLayout";
 import AppShell from "./components/layout/AppShell";
@@ -56,104 +57,106 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <Routes>
-          {/* Public marketing site */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/impact" element={<PublicImpact />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-          </Route>
+          <WebSocketProvider>
+            <Routes>
+              {/* Public marketing site */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/impact" element={<PublicImpact />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+              </Route>
 
-          {/* Consumer portal */}
-          <Route
-            path="/consumer"
-            element={
-              <ProtectedRoute roles={["CONSUMER"]}>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<ConsumerDashboard />} />
-            <Route path="addresses" element={<ConsumerAddresses />} />
-            <Route path="new-request" element={<ConsumerNewRequest />} />
-            <Route path="requests" element={<ConsumerRequests />} />
-            <Route path="requests/:id" element={<ConsumerRequestDetail />} />
-            <Route path="requests/:id/certificate" element={<ConsumerCertificate />} />
-            <Route path="impact" element={<ConsumerImpact />} />
-            <Route path="support" element={<Support />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
+              {/* Consumer portal */}
+              <Route
+                path="/consumer"
+                element={
+                  <ProtectedRoute roles={["CONSUMER"]}>
+                    <AppShell />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<ConsumerDashboard />} />
+                <Route path="addresses" element={<ConsumerAddresses />} />
+                <Route path="new-request" element={<ConsumerNewRequest />} />
+                <Route path="requests" element={<ConsumerRequests />} />
+                <Route path="requests/:id" element={<ConsumerRequestDetail />} />
+                <Route path="requests/:id/certificate" element={<ConsumerCertificate />} />
+                <Route path="impact" element={<ConsumerImpact />} />
+                <Route path="support" element={<Support />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
-          {/* Pickup partner portal */}
-          <Route
-            path="/partner"
-            element={
-              <ProtectedRoute roles={["PARTNER"]}>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<PartnerDashboard />} />
-            <Route path="assignments" element={<PartnerAssignments />} />
-            <Route path="requests/:id" element={<PartnerRequestDetail />} />
-            <Route path="history" element={<PartnerHistory />} />
-            <Route path="earnings" element={<PartnerEarnings />} />
-            <Route path="support" element={<Support />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
+              {/* Pickup partner portal */}
+              <Route
+                path="/partner"
+                element={
+                  <ProtectedRoute roles={["PARTNER"]}>
+                    <AppShell />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<PartnerDashboard />} />
+                <Route path="assignments" element={<PartnerAssignments />} />
+                <Route path="requests/:id" element={<PartnerRequestDetail />} />
+                <Route path="history" element={<PartnerHistory />} />
+                <Route path="earnings" element={<PartnerEarnings />} />
+                <Route path="support" element={<Support />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
-          {/* Segregation centre portal */}
-          <Route
-            path="/centre"
-            element={
-              <ProtectedRoute roles={["CENTRE"]}>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<CentreDashboard />} />
-            <Route path="incoming" element={<CentreIncoming />} />
-            <Route path="active" element={<CentreActive />} />
-            <Route path="inventory" element={<CentreInventory />} />
-            <Route path="history" element={<CentreHistory />} />
-            <Route path="requests/:id" element={<CentreRequestDetail />} />
-            <Route path="support" element={<Support />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
+              {/* Segregation centre portal */}
+              <Route
+                path="/centre"
+                element={
+                  <ProtectedRoute roles={["CENTRE"]}>
+                    <AppShell />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<CentreDashboard />} />
+                <Route path="incoming" element={<CentreIncoming />} />
+                <Route path="active" element={<CentreActive />} />
+                <Route path="inventory" element={<CentreInventory />} />
+                <Route path="history" element={<CentreHistory />} />
+                <Route path="requests/:id" element={<CentreRequestDetail />} />
+                <Route path="support" element={<Support />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
-          {/* Admin console */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute roles={["ADMIN"]}>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<AdminDashboard />} />
-            <Route path="requests" element={<AdminRequests />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="categories" element={<AdminCategories />} />
-            <Route path="settings" element={<AdminSettings />} />
-            <Route path="revenue" element={<AdminRevenue />} />
-            <Route path="payouts" element={<AdminPayouts />} />
-            <Route path="partner-balances" element={<AdminPartnerBalances />} />
-            <Route path="audit-log" element={<AdminAuditLog />} />
-            <Route path="support" element={<AdminSupport />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
+              {/* Admin console */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute roles={["ADMIN"]}>
+                    <AppShell />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<AdminDashboard />} />
+                <Route path="requests" element={<AdminRequests />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="categories" element={<AdminCategories />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="revenue" element={<AdminRevenue />} />
+                <Route path="payouts" element={<AdminPayouts />} />
+                <Route path="partner-balances" element={<AdminPartnerBalances />} />
+                <Route path="audit-log" element={<AdminAuditLog />} />
+                <Route path="support" element={<AdminSupport />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AuthProvider>
-    </ThemeProvider>
-  </BrowserRouter>
-);
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </WebSocketProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </BrowserRouter>
+  );
 }

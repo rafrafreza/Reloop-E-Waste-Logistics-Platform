@@ -251,11 +251,15 @@ def toggle_active(user_id: int, db: Session = Depends(get_db), user: User = Depe
     target.is_active = not target.is_active
     log_audit(db, user.id, "USER_ACTIVATED" if target.is_active else "USER_DEACTIVATED",
               f"{target.role} account: {target.email}")
+    notif_payload = None
     if target.is_active and target.role in ("PARTNER", "CENTRE"):
-        notify(db, target.id, "Account approved",
+        notif_payload = notify(db, target.id, "Account approved",
                "Your account has been reviewed and approved. You can now sign in and start working.")
     db.commit()
     db.refresh(target)
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return target
 
 
@@ -476,11 +480,14 @@ def respond_to_ticket(ticket_id: int, payload: SupportTicketAdminUpdate, db: Ses
     if payload.admin_response is not None:
         ticket.admin_response = payload.admin_response
     log_audit(db, user.id, "SUPPORT_TICKET_UPDATED", f"#{ticket.id} -> {payload.status}")
-    notify(db, ticket.user_id, "Support ticket updated",
+    notif_payload = notify(db, ticket.user_id, "Support ticket updated",
            f"Your ticket \"{ticket.subject}\" is now {payload.status.replace('_', ' ').title()}.",
            link="/support")
     db.commit()
     db.refresh(ticket)
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return SupportTicketOut(
         id=ticket.id, user_id=ticket.user_id, user_name=ticket.user.full_name if ticket.user else None,
         user_role=ticket.user.role if ticket.user else None, request_id=ticket.request_id, subject=ticket.subject,
@@ -555,11 +562,12 @@ def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Dep
         payout.cashfree_status_code = result.get("status_code")
         payout.beneficiary_id = result.get("beneficiary_details", {}).get("beneficiary_id")
 
+        notif_payload = None
         if result.get("http_status") in (200, 201):
             cf_status = result.get("status", "PENDING")
             payout.cashfree_status = cf_status
             payout.status = "SUCCESS" if cf_status == "SUCCESS" else "PROCESSING"
-            notify(db, payout.user_id, "Payout retried",
+            notif_payload = notify(db, payout.user_id, "Payout retried",
                    f"Rs.{payout.amount:.2f} payout has been re-initiated to your UPI.")
         else:
             payout.status = "FAILED"
@@ -577,6 +585,9 @@ def retry_payout(payout_id: int, db: Session = Depends(get_db), user: User = Dep
 
     log_audit(db, user.id, "PAYOUT_RETRIED", f"Payout #{payout.id} retried as {transfer_id}")
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return {"ok": True, "transfer_id": transfer_id}
 
 

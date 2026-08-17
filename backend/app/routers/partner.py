@@ -111,11 +111,14 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
     partner_profile.status = "BUSY"
     
     log_status(db, req.id, "ASSIGNED", f"Accepted by pickup partner {user.full_name}")
-    notify(db, req.consumer_id, "Pickup partner assigned",
+    notif_payload = notify(db, req.consumer_id, "Pickup partner assigned",
            f"{user.full_name} has accepted your request #{req.id} and is now assigned. Your handover OTP is {otp}.",
            link=f"/consumer/requests/{req.id}")
            
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
 
 
@@ -145,9 +148,12 @@ def start_pickup(request_id: int, db: Session = Depends(get_db), user: User = De
 
     req.status = "OUT_FOR_PICKUP"
     log_status(db, req.id, "OUT_FOR_PICKUP", "Pickup partner is on the way")
-    notify(db, req.consumer_id, "Partner on the way",
+    notif_payload = notify(db, req.consumer_id, "Partner on the way",
            f"Your pickup partner is heading to your address for request #{req.id}.")
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return to_request_out(_get_assigned_request(db, request_id, user.id))
 
 
@@ -171,7 +177,7 @@ def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends
         for item in req.items:
             weight = item.actual_weight_kg if item.actual_weight_kg is not None else item.estimated_weight_kg
             if item.category:
-                new_material_value += weight * item.category.base_price_per_kg
+                new_material_value += weight * item.quantity * item.category.base_price_per_kg
         
         req.quotation.material_value = round(new_material_value, 2)
         new_total = new_material_value - req.quotation.handling_charge - req.quotation.pickup_charge
@@ -180,14 +186,18 @@ def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends
 
     req.status = "PICKED_UP"
     log_status(db, req.id, "PICKED_UP", "OTP verified, items collected from consumer")
-    notify(db, req.consumer_id, "Pickup completed",
+    notif_payload = notify(db, req.consumer_id, "Pickup completed",
            f"Your e-waste for request #{req.id} has been picked up successfully.")
 
     # Trigger consumer payout
     from app.cashfree_payout import process_consumer_payout
-    process_consumer_payout(db, req)
+    payout_notif = process_consumer_payout(db, req)
 
     db.commit()
+    if notif_payload or payout_notif:
+        from app.websocket import manager
+        if notif_payload: manager.push_sync(notif_payload["user_id"], notif_payload)
+        if payout_notif: manager.push_sync(payout_notif["user_id"], payout_notif)
     return to_request_out(_get_assigned_request(db, request_id, user.id))
 
 
@@ -202,7 +212,7 @@ def deliver_to_centre(request_id: int, db: Session = Depends(get_db), user: User
             centre_id=req.centre_id,
             request_id=req.id,
             category_id=item.category_id,
-            weight_kg=item.actual_weight_kg or item.estimated_weight_kg,
+            weight_kg=(item.actual_weight_kg if item.actual_weight_kg is not None else item.estimated_weight_kg) * item.quantity,
             status="IN_STORAGE",
         ))
 
@@ -213,11 +223,15 @@ def deliver_to_centre(request_id: int, db: Session = Depends(get_db), user: User
     if partner_profile:
         partner_profile.status = "AVAILABLE"
 
+    notif_payload = None
     if req.centre:
-        notify(db, req.centre.user_id, "Shipment arrived",
+        notif_payload = notify(db, req.centre.user_id, "Shipment arrived",
                f"Request #{req.id} has arrived at the centre and is ready for final processing.")
 
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return to_request_out(_get_assigned_request(db, request_id, user.id))
 
 

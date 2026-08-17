@@ -154,7 +154,12 @@ export default function PartnerRequestDetail() {
                   required
                   className="input w-28"
                   value={weights[i.id] ?? ""}
-                  onChange={(e) => setWeights((w) => ({ ...w, [i.id]: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^\d*\.?\d*$/.test(val)) {
+                      setWeights((w) => ({ ...w, [i.id]: val }));
+                    }
+                  }}
                 />
               </div>
             ))}
