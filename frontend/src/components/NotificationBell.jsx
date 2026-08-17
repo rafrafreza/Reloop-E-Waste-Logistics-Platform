@@ -7,6 +7,7 @@ export default function NotificationBell({ openUpward = false }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [count, setCount] = useState(0);
+  const [hasUnseen, setHasUnseen] = useState(false);
   const ref = useRef(null);
   
   const { latestNotification } = useWebSocket();
@@ -17,8 +18,12 @@ export default function NotificationBell({ openUpward = false }) {
         commonApi.unreadCount(),
         commonApi.notifications(),
       ]);
-      setCount(countRes.data.count);
+      const currentCount = countRes.data.count;
+      setCount(currentCount);
       setNotifications(notifRes.data);
+      
+      const seenCount = parseInt(localStorage.getItem("seenUnreadCount") || "0", 10);
+      setHasUnseen(currentCount > seenCount);
     } catch (err) {}
   };
 
@@ -35,7 +40,12 @@ export default function NotificationBell({ openUpward = false }) {
       } else if (!processedRef.current.has(latestNotification.id)) {
         processedRef.current.add(latestNotification.id);
         setNotifications((prev) => [latestNotification, ...prev]);
-        setCount((c) => c + 1);
+        setCount((c) => {
+          const newCount = c + 1;
+          const seenCount = parseInt(localStorage.getItem("seenUnreadCount") || "0", 10);
+          setHasUnseen(newCount > seenCount);
+          return newCount;
+        });
       }
     }
   }, [latestNotification]);
@@ -49,6 +59,10 @@ export default function NotificationBell({ openUpward = false }) {
   }, []);
 
   const toggle = () => {
+    if (!open) {
+      localStorage.setItem("seenUnreadCount", count.toString());
+      setHasUnseen(false);
+    }
     setOpen(!open);
   };
 
@@ -56,6 +70,8 @@ export default function NotificationBell({ openUpward = false }) {
     await commonApi.markAllRead();
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setCount(0);
+    setHasUnseen(false);
+    localStorage.setItem("seenUnreadCount", "0");
   };
 
   return (
@@ -69,10 +85,8 @@ export default function NotificationBell({ openUpward = false }) {
           <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 01-3.46 0" />
         </svg>
-        {count > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-copper px-1 font-mono text-[10px] text-white">
-            {count > 9 ? "9+" : count}
-          </span>
+        {hasUnseen && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-copper ring-2 ring-white" />
         )}
       </button>
 

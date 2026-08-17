@@ -15,7 +15,7 @@ from app.models import (
     User,
 )
 from app.schemas import AcceptQuoteRequest, AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut, ImpactStats, RatingCreate
-from app.utils import log_status, to_request_out
+from app.utils import log_status, to_request_out, notify
 
 router = APIRouter(prefix="/api/consumer", tags=["consumer"])
 require_consumer = require_role("CONSUMER")
@@ -252,9 +252,19 @@ def cancel_request(request_id: int, db: Session = Depends(get_db), user: User = 
     if req.status not in ("PENDING", "QUOTED"):
         raise HTTPException(status_code=400, detail="Request can no longer be cancelled at this stage")
 
+    notif_payload = None
+    if req.centre_id:
+        notif_payload = notify(db, req.centre.user_id, "Request cancelled",
+               f"Request #{req.id} was cancelled by the consumer.")
+
     req.status = "CANCELLED"
     log_status(db, req.id, "CANCELLED", "Cancelled by consumer")
     db.commit()
+
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
+
     return to_request_out(_get_owned_request(db, request_id, user.id))
 
 

@@ -106,6 +106,7 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
         consumer_phone=req.consumer.phone if req.consumer else None,
         centre_id=req.centre_id,
         centre_name=req.centre.centre_name if req.centre else None,
+        centre_address=f"{req.centre.address}, {req.centre.city}" if req.centre and req.centre.address else (req.centre.city if req.centre else None),
         status=req.status,
         preferred_date=req.preferred_date,
         notes=req.notes,

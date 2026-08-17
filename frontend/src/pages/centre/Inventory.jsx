@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { centreApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
@@ -19,7 +20,13 @@ const FILTERS = [
 
 export default function Inventory() {
   const [items, setItems] = useState(null);
-  const [filter, setFilter] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = searchParams.get("filter") || "";
+  const setFilter = (val) => {
+    if (val) searchParams.set("filter", val);
+    else searchParams.delete("filter");
+    setSearchParams(searchParams);
+  };
   const [capacity, setCapacity] = useState(null);
   const [selected, setSelected] = useState([]);
   const [dispatchOpen, setDispatchOpen] = useState(false);

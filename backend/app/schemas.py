@@ -309,6 +309,7 @@ class CollectionRequestOut(BaseModel):
     consumer_phone: str | None = None
     centre_id: int | None
     centre_name: str | None = None
+    centre_address: str | None = None
     status: str
     preferred_date: datetime | None
     notes: str | None

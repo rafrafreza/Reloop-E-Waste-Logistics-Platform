@@ -170,9 +170,31 @@ export default function PartnerRequestDetail() {
         )}
 
         {request.status === "PICKED_UP" && (
-          <button disabled={acting} onClick={() => act(() => partnerApi.deliver(id), "Confirm items have been delivered to the centre?")} className="btn-primary w-full">
-            Mark delivered to centre
-          </button>
+          <div className="space-y-4">
+            <div>
+              <p className="field-label text-copper">Drop-off at Centre</p>
+              <p className="font-medium text-ink mt-1">{request.centre_name}</p>
+              {request.centre_address && (
+                <p className="text-sm text-inkfaint">{request.centre_address}</p>
+              )}
+            </div>
+            
+            {request.centre_address && (
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(request.centre_name + ' ' + request.centre_address)}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn-secondary w-full flex justify-center items-center gap-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                Navigate to Centre
+              </a>
+            )}
+
+            <button disabled={acting} onClick={() => act(() => partnerApi.deliver(id), "Confirm items have been delivered to the centre?")} className="btn-primary w-full">
+              Mark delivered to centre
+            </button>
+          </div>
         )}
       </div>
 

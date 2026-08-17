@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { adminApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
@@ -8,8 +9,21 @@ export default function Payouts() {
   const [payouts, setPayouts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [typeFilter, setTypeFilter] = useState("ALL");
+  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get("status") || "ALL";
+  const typeFilter = searchParams.get("type") || "ALL";
+  const setStatusFilter = (val) => {
+    if (val && val !== "ALL") searchParams.set("status", val);
+    else searchParams.delete("status");
+    setSearchParams(searchParams);
+  };
+  const setTypeFilter = (val) => {
+    if (val && val !== "ALL") searchParams.set("type", val);
+    else searchParams.delete("type");
+    setSearchParams(searchParams);
+  };
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [acting, setActing] = useState(false);
 

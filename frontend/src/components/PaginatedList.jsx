@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 
 export default function PaginatedList({ 
   items, 
@@ -8,8 +9,22 @@ export default function PaginatedList({
   emptyState, 
   itemsPerPage = 4 
 }) {
-  const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.get("search") || "";
+  const currentPage = parseInt(searchParams.get("page") || "1", 10) || 1;
+
+  const setSearch = (val) => {
+    if (val) searchParams.set("search", val);
+    else searchParams.delete("search");
+    setSearchParams(searchParams);
+  };
+
+  const setCurrentPage = (val) => {
+    const page = typeof val === "function" ? val(currentPage) : val;
+    if (page > 1) searchParams.set("page", page.toString());
+    else searchParams.delete("page");
+    setSearchParams(searchParams);
+  };
 
   const filteredItems = useMemo(() => {
     if (!items) return [];

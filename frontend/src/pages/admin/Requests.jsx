@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { adminApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -9,7 +10,13 @@ const STATUSES = ["", "PENDING", "QUOTED", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICK
 
 export default function Requests() {
   const [requests, setRequests] = useState(null);
-  const [status, setStatus] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const status = searchParams.get("status") || "";
+  const setStatus = (val) => {
+    if (val) searchParams.set("status", val);
+    else searchParams.delete("status");
+    setSearchParams(searchParams);
+  };
 
   useEffect(() => {
     setRequests(null);

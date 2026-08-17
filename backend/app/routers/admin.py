@@ -270,7 +270,7 @@ def list_categories(db: Session = Depends(get_db), user: User = Depends(require_
 
 @router.post("/categories", response_model=CategoryOut, status_code=201)
 def create_category(payload: CategoryCreate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
-    existing = db.query(Category).filter(Category.name == payload.name).first()
+    existing = db.query(Category).filter(func.lower(Category.name) == payload.name.lower()).first()
     if existing:
         raise HTTPException(status_code=400, detail="Category with this name already exists")
     cat = Category(**payload.model_dump())
@@ -286,6 +286,12 @@ def update_category(category_id: int, payload: CategoryCreate, db: Session = Dep
     cat = db.get(Category, category_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
+    
+    if payload.name != cat.name:
+        existing = db.query(Category).filter(func.lower(Category.name) == payload.name.lower()).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Category with this name already exists")
+
     for k, v in payload.model_dump().items():
         setattr(cat, k, v)
     log_audit(db, user.id, "CATEGORY_UPDATED", payload.name)

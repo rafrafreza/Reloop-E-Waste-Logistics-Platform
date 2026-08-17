@@ -23,13 +23,27 @@ function emptyItem(categoryId) {
 export default function NewRequest() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [step, setStep] = useState(0);
+  const draft = (() => {
+    try {
+      const d = sessionStorage.getItem("new_request_draft");
+      if (d) return JSON.parse(d);
+    } catch(e) {}
+    return null;
+  })();
+
+  const [step, setStep] = useState(draft?.step || 0);
   const [addresses, setAddresses] = useState(null);
   const [categories, setCategories] = useState(null);
-  const [addressId, setAddressId] = useState(null);
-  const [items, setItems] = useState([]);
-  const [preferredDate, setPreferredDate] = useState("");
-  const [notes, setNotes] = useState("");
+  const [addressId, setAddressId] = useState(draft?.addressId || null);
+  const [items, setItems] = useState(draft?.items || []);
+  const [preferredDate, setPreferredDate] = useState(draft?.preferredDate || "");
+  const [notes, setNotes] = useState(draft?.notes || "");
+
+  useEffect(() => {
+    sessionStorage.setItem("new_request_draft", JSON.stringify({
+      step, addressId, items, preferredDate, notes
+    }));
+  }, [step, addressId, items, preferredDate, notes]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploadingKey, setUploadingKey] = useState(null);
@@ -41,9 +55,9 @@ export default function NewRequest() {
       setAddresses(addrRes.data);
       setCategories(catRes.data);
       const def = addrRes.data.find((a) => a.is_default) || addrRes.data[0];
-      if (def) setAddressId(def.id);
+      if (def && !draft?.addressId) setAddressId(def.id);
 
-      if (prefillItems && prefillItems.length) {
+      if (prefillItems && prefillItems.length && !draft?.items?.length) {
         setItems(
           prefillItems.map((i) => ({
             key: Math.random().toString(36).slice(2),
@@ -51,7 +65,7 @@ export default function NewRequest() {
             ...i,
           }))
         );
-      } else if (catRes.data.length) {
+      } else if (catRes.data.length && !draft?.items?.length) {
         setItems([emptyItem(catRes.data[0].id)]);
       }
     });
@@ -114,6 +128,7 @@ export default function NewRequest() {
         })),
       };
       const res = await consumerApi.createRequest(payload);
+      sessionStorage.removeItem("new_request_draft");
       navigate(`/consumer/requests/${res.data.id}`);
     } catch (err) {
       setError(apiErrorMessage(err, "Could not create request"));

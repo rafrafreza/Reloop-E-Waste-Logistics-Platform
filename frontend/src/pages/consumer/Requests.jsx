@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
@@ -21,7 +21,13 @@ const FILTERS = [
 
 export default function Requests() {
   const [requests, setRequests] = useState(null);
-  const [filter, setFilter] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = searchParams.get("filter") || "";
+  const setFilter = (val) => {
+    if (val) searchParams.set("filter", val);
+    else searchParams.delete("filter");
+    setSearchParams(searchParams);
+  };
 
   useEffect(() => {
     setRequests(null);

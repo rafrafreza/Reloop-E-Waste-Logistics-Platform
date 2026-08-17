@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { adminApi } from "../../api/endpoints";
 import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 import PaginatedList from "../../components/PaginatedList";
@@ -8,7 +9,13 @@ const ROLES = ["", "CONSUMER", "PARTNER", "CENTRE", "ADMIN"];
 
 export default function Users() {
   const [users, setUsers] = useState(null);
-  const [roleFilter, setRoleFilter] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roleFilter = searchParams.get("role") || "";
+  const setRoleFilter = (val) => {
+    if (val) searchParams.set("role", val);
+    else searchParams.delete("role");
+    setSearchParams(searchParams);
+  };
 
   const load = () => adminApi.listUsers(roleFilter || undefined).then((res) => setUsers(res.data));
 

@@ -27,7 +27,7 @@ export default function Earnings() {
       <p className="mt-1 text-sm text-inkfaint">What you've made on Reloop, job by job.</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile label="Total expected" value={`₹${earnings.total_earnings.toFixed(0)}`} accent="text-copper" />
+        <StatTile label="Total earnings" value={`₹${earnings.total_earnings.toFixed(0)}`} accent="text-copper" />
         <StatTile label="Wallet Balance" value={`₹${earnings.paid_earnings.toFixed(0)}`} accent="text-circuit" />
         <StatTile label="Pending" value={`₹${earnings.pending_earnings.toFixed(0)}`} accent="text-amber" />
         <StatTile label="Completed jobs" value={earnings.completed_jobs} accent="text-ink" />

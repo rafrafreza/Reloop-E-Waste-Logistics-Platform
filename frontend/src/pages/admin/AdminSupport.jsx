@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { adminApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
@@ -15,7 +16,13 @@ const FILTERS = ["", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
 
 export default function AdminSupport() {
   const [tickets, setTickets] = useState(null);
-  const [status, setStatus] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const status = searchParams.get("status") || "";
+  const setStatus = (val) => {
+    if (val) searchParams.set("status", val);
+    else searchParams.delete("status");
+    setSearchParams(searchParams);
+  };
   const [replying, setReplying] = useState(null);
   const [response, setResponse] = useState("");
   const [newStatus, setNewStatus] = useState("IN_PROGRESS");
