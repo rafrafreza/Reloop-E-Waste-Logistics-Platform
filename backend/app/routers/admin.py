@@ -336,8 +336,10 @@ def list_settings(db: Session = Depends(get_db), user: User = Depends(require_ad
 def update_setting(key: str, payload: SettingUpdate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     setting = db.query(Setting).filter(Setting.key == key).first()
     if not setting:
-        raise HTTPException(status_code=404, detail="Setting not found")
-    setting.value = payload.value
+        setting = Setting(key=key, value=payload.value, description="")
+        db.add(setting)
+    else:
+        setting.value = payload.value
     log_audit(db, user.id, "SETTING_UPDATED", f"{key} = {payload.value}")
     db.commit()
     db.refresh(setting)

@@ -76,21 +76,25 @@ export default function Login() {
               <input required type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </div>
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="label mb-0">Password</label>
-                <Link to="/forgot-password" className="text-xs text-circuit hover:underline">Forgot password?</Link>
-              </div>
+              <label className="label">Password</label>
               <input required type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? "Signing in..." : "Sign in"}
             </button>
-            <p className="text-center text-sm text-inkfaint">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-circuit hover:underline">
-                Register
-              </Link>
-            </p>
+            <div className="space-y-2 text-center text-sm">
+              <p className="text-inkfaint">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-circuit hover:underline">
+                  Register
+                </Link>
+              </p>
+              <p>
+                <Link to="/forgot-password" className="text-circuit hover:underline">
+                  Forgot your password?
+                </Link>
+              </p>
+            </div>
           </form>
         </>
       )}
