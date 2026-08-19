@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app import seed
+from app.database import Base, engine
 from app.routers import admin, auth, centre, chat, common, consumer, partner, support, uploads
 
 app = FastAPI(
@@ -48,7 +48,9 @@ async def on_startup():
         manager.main_loop = asyncio.get_running_loop()
     except RuntimeError:
         pass
-    seed.run()
+    # Ensure database tables exist
+    Base.metadata.create_all(bind=engine)
+    
     # Log outbound IP on startup for Cashfree whitelist reference
     try:
         import httpx

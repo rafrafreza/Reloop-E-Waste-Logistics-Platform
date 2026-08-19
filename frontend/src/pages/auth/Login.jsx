@@ -5,12 +5,6 @@ import { apiErrorMessage } from "../../api/client";
 import { Banner } from "../../components/ui/Primitives";
 import PendingApprovalNotice from "../../components/PendingApprovalNotice";
 
-const DEMO_LOGINS = [
-  { label: "Consumer", email: "consumer@reloop.com" },
-  { label: "Pickup Partner", email: "partner@reloop.com" },
-  { label: "Segregation Centre", email: "centre@reloop.com" },
-  { label: "Admin", email: "admin@reloop.com" },
-];
 
 export default function Login() {
   const { login, user } = useAuth();
@@ -53,11 +47,6 @@ export default function Login() {
     }
   };
 
-  const fillDemo = (demoEmail) => {
-    setEmail(demoEmail);
-    const pwd = demoEmail.split("@")[0].split(".")[0] + "123";
-    setPassword(pwd);
-  };
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-140px)] max-w-md flex-col justify-center px-5 py-16">
@@ -103,17 +92,6 @@ export default function Login() {
               </Link>
             </p>
           </form>
-
-          <div className="mt-6">
-            <p className="field-label">Try a demo account (password auto-filled)</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {DEMO_LOGINS.map((d) => (
-                <button key={d.email} onClick={() => fillDemo(d.email)} className="btn-secondary text-xs">
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </>
       )}
     </div>
