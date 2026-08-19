@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { centreApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
@@ -13,6 +13,7 @@ import { formatDate } from "../../utils/date";
 
 export default function CentreRequestDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const defaults = useDefaultCharges();
   const [request, setRequest] = useState(null);
   const [error, setError] = useState("");
@@ -58,7 +59,7 @@ export default function CentreRequestDetail() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/centre/incoming" className="text-sm text-inkfaint hover:text-ink">← Back</Link>
+      <button onClick={() => window.history.length > 2 ? navigate(-1) : navigate('/centre/incoming')} className="text-sm text-inkfaint hover:text-ink">← Back</button>
 
       {error && <div className="mt-4"><Banner kind="error">{error}</Banner></div>}
 

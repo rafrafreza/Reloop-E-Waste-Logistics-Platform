@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { partnerApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
@@ -13,6 +13,7 @@ import MapViewer from "../../components/MapViewer";
 
 export default function PartnerRequestDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [request, setRequest] = useState(null);
   const [error, setError] = useState("");
   const [acting, setActing] = useState(false);
@@ -69,7 +70,7 @@ export default function PartnerRequestDetail() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/partner/assignments" className="text-sm text-inkfaint hover:text-ink">← Back to assignments</Link>
+      <button onClick={() => window.history.length > 2 ? navigate(-1) : navigate('/partner/assignments')} className="text-sm text-inkfaint hover:text-ink">← Back to assignments</button>
 
       {error && <div className="mt-4"><Banner kind="error">{error}</Banner></div>}
 

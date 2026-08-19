@@ -16,8 +16,7 @@ export default function NotificationBell({ openUpward = false }) {
       const notifRes = await commonApi.notifications();
       setNotifications(notifRes.data);
       
-      const lastOpened = parseInt(localStorage.getItem("notifLastOpened") || "0", 10);
-      const hasNew = notifRes.data.some(n => !n.is_read && new Date(n.created_at).getTime() > lastOpened);
+      const hasNew = notifRes.data.some(n => !n.is_read);
       setHasUnseen(hasNew);
     } catch (err) {}
   };
@@ -52,10 +51,6 @@ export default function NotificationBell({ openUpward = false }) {
   }, []);
 
   const toggle = () => {
-    if (!open) {
-      setHasUnseen(false);
-      localStorage.setItem("notifLastOpened", Date.now().toString());
-    }
     setOpen(!open);
   };
 

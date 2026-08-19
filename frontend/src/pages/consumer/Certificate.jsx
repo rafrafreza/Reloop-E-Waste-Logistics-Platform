@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
 import { PageLoader, Banner } from "../../components/ui/Primitives";
 import { formatDate } from "../../utils/date";
 
 export default function Certificate() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [request, setRequest] = useState(null);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export default function Certificate() {
     return (
       <div className="mx-auto max-w-lg">
         <Banner kind="info">A certificate is only available once a request has been completed.</Banner>
-        <Link to={`/consumer/requests/${id}`} className="btn-secondary mt-4 inline-flex">Back to request</Link>
+        <button onClick={() => window.history.length > 2 ? navigate(-1) : navigate(`/consumer/requests/${id}`)} className="btn-secondary mt-4 inline-flex">Back to request</button>
       </div>
     );
   }
@@ -30,7 +31,7 @@ export default function Certificate() {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-4 flex items-center justify-between print:hidden">
-        <Link to={`/consumer/requests/${id}`} className="text-sm text-inkfaint hover:text-ink">← Back to request</Link>
+        <button onClick={() => window.history.length > 2 ? navigate(-1) : navigate(`/consumer/requests/${id}`)} className="text-sm text-inkfaint hover:text-ink">← Back to request</button>
         <button onClick={() => window.print()} className="btn-primary">Print / Save as PDF</button>
       </div>
 

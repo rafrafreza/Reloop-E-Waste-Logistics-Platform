@@ -109,7 +109,7 @@ export default function RequestDetail() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/consumer/requests" className="text-sm text-inkfaint hover:text-ink">← Back to requests</Link>
+      <button onClick={() => window.history.length > 2 ? navigate(-1) : navigate("/consumer/requests")} className="text-sm text-inkfaint hover:text-ink">← Back to requests</button>
 
       {error && <div className="mt-4"><Banner kind="error">{error}</Banner></div>}
 
