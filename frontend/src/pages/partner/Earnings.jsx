@@ -28,8 +28,8 @@ export default function Earnings() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile label="Total earnings" value={`₹${earnings.total_earnings.toFixed(0)}`} accent="text-copper" />
-        <StatTile label="Wallet Balance" value={`₹${earnings.paid_earnings.toFixed(0)}`} accent="text-circuit" />
-        <StatTile label="Pending" value={`₹${earnings.pending_earnings.toFixed(0)}`} accent="text-amber" />
+        <StatTile label="Wallet balance" value={`₹${earnings.wallet_balance.toFixed(0)}`} accent="text-circuit" />
+        <StatTile label="Pending earning" value={`₹${earnings.pending_earnings.toFixed(0)}`} accent="text-amber" />
         <StatTile label="Completed jobs" value={earnings.completed_jobs} accent="text-ink" />
       </div>
 

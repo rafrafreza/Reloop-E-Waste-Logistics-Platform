@@ -42,6 +42,16 @@ def log_audit(db: Session, actor_id: int | None, action: str, details: str | Non
     db.add(AuditLog(actor_id=actor_id, action=action, details=details))
 
 
+def get_setting_int(db: Session, key: str, default: int) -> int:
+    from app.models import Setting
+    setting = db.query(Setting).filter(Setting.key == key).first()
+    if setting:
+        try:
+            return int(setting.value)
+        except ValueError:
+            pass
+    return default
+
 def get_setting_float(db: Session, key: str, default: float) -> float:
     """Reads a numeric setting value, falling back safely if missing/unparseable."""
     row = db.query(Setting).filter(Setting.key == key).first()
@@ -108,7 +118,12 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
         centre_name=req.centre.centre_name if req.centre else None,
         centre_address=f"{req.centre.address}, {req.centre.city}" if req.centre and req.centre.address else (req.centre.city if req.centre else None),
         status=req.status,
-        preferred_date=req.preferred_date,
+        request_type=req.request_type,
+        quote_accepted_at=req.quote_accepted_at,
+        sla_deadline=(
+            req.quote_accepted_at + __import__("datetime").timedelta(hours=24 if req.request_type == "PRIORITY" else 24 * 7)
+            if req.quote_accepted_at else None
+        ),
         notes=req.notes,
         pickup_otp=req.pickup_otp,
         payment_method=req.payment_method,

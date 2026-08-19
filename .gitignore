@@ -24,3 +24,5 @@ frontend/.env
 .agent/skills/cashfree-skills/
 .github/skills/cashfree-skills/
 *.txt
+
+plan.md

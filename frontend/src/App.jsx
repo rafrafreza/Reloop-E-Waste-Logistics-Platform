@@ -32,6 +32,7 @@ import PartnerDashboard from "./pages/partner/Dashboard";
 import PartnerAssignments from "./pages/partner/Assignments";
 import PartnerRequestDetail from "./pages/partner/RequestDetail";
 import PartnerHistory from "./pages/partner/History";
+import PartnerMyItems from "./pages/partner/MyItems";
 import PartnerEarnings from "./pages/partner/Earnings";
 
 import CentreDashboard from "./pages/centre/Dashboard";
@@ -40,6 +41,7 @@ import CentreActive from "./pages/centre/ActiveRequests";
 import CentreInventory from "./pages/centre/Inventory";
 import CentreHistory from "./pages/centre/History";
 import CentreRequestDetail from "./pages/centre/RequestDetail";
+import CentreFinance from "./pages/centre/Finance";
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminUsers from "./pages/admin/Users";
@@ -106,6 +108,7 @@ export default function App() {
                 <Route path="assignments" element={<PartnerAssignments />} />
                 <Route path="requests/:id" element={<PartnerRequestDetail />} />
                 <Route path="history" element={<PartnerHistory />} />
+                <Route path="my-items" element={<PartnerMyItems />} />
                 <Route path="earnings" element={<PartnerEarnings />} />
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<Profile />} />
@@ -125,6 +128,7 @@ export default function App() {
                 <Route path="active" element={<CentreActive />} />
                 <Route path="inventory" element={<CentreInventory />} />
                 <Route path="history" element={<CentreHistory />} />
+                <Route path="finance" element={<CentreFinance />} />
                 <Route path="requests/:id" element={<CentreRequestDetail />} />
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<Profile />} />

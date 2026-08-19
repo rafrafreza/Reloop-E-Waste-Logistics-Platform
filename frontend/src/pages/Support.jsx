@@ -3,6 +3,7 @@ import { supportApi } from "../api/endpoints";
 import { apiErrorMessage } from "../api/client";
 import { PageLoader, EmptyState, Banner, Modal } from "../components/ui/Primitives";
 import { formatDateTime } from "../utils/date";
+import { useWebSocket } from "../context/WebSocketContext";
 
 const STATUS_STYLE = {
   OPEN: "text-amber bg-amberlight border-amber/40",
@@ -19,11 +20,19 @@ export default function Support() {
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
+  const { latestNotification } = useWebSocket();
+
   const load = () => supportApi.listMine().then((res) => setTickets(res.data));
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (latestNotification && latestNotification.link?.includes("support")) {
+      load();
+    }
+  }, [latestNotification]);
 
   const openNew = () => {
     setForm({ subject: "", message: "" });
@@ -79,14 +88,39 @@ export default function Support() {
 
               {expanded === t.id && (
                 <div className="ticket-divider mt-3 pt-3">
-                  <p className="text-sm text-ink">{t.message}</p>
-                  {t.admin_response ? (
-                    <div className="mt-3 rounded border border-circuit/30 bg-circuitlight p-3">
-                      <p className="field-label text-circuitdark">Reloop support response</p>
-                      <p className="mt-1 text-sm text-ink">{t.admin_response}</p>
+                  <div className="space-y-3">
+                    <div className="rounded border border-ink/10 bg-paper p-3">
+                      <p className="field-label text-ink">You</p>
+                      <p className="mt-1 text-sm text-ink">{t.message}</p>
                     </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-inkfaint">No response yet — our team typically responds within a day.</p>
+                    {t.messages && t.messages.map(m => (
+                      <div key={m.id} className={`rounded border p-3 ${m.sender_role === 'ADMIN' ? 'border-circuit/30 bg-circuitlight' : 'border-ink/10 bg-paper'}`}>
+                        <p className={`field-label ${m.sender_role === 'ADMIN' ? 'text-circuitdark' : 'text-ink'}`}>{m.sender_role === 'ADMIN' ? 'Reloop Support' : 'You'}</p>
+                        <p className="mt-1 text-sm text-ink">{m.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {t.status !== 'CLOSED' && (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const input = e.target.elements.reply;
+                      const msg = input.value;
+                      if (!msg.trim()) return;
+                      input.disabled = true;
+                      try {
+                        await supportApi.addMessage(t.id, { message: msg });
+                        input.value = "";
+                        await load();
+                      } catch (err) {
+                        alert("Could not send message");
+                      } finally {
+                        input.disabled = false;
+                      }
+                    }} className="mt-4 flex gap-2">
+                      <input name="reply" type="text" placeholder="Type a reply..." className="input flex-1" required />
+                      <button type="submit" className="btn-secondary">Send</button>
+                    </form>
                   )}
                 </div>
               )}

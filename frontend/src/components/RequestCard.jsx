@@ -26,11 +26,16 @@ export default function RequestCard({ request, basePath, extra }) {
           </p>
         )}
 
-        {request.preferred_date && (
-          <p className="mt-1 text-xs font-medium text-circuit">
-            Preferred Pickup Date: {formatDate(request.preferred_date)}
-          </p>
-        )}
+        <div className="mt-1 flex items-center gap-2">
+          <span className={`text-xs font-medium px-2 py-0.5 rounded ${request.request_type === 'PRIORITY' ? 'bg-circuitlight text-circuitdark' : 'bg-paperdim text-inkfaint'}`}>
+            {request.request_type}
+          </span>
+          {request.sla_deadline && (
+            <span className={`text-xs ${new Date(request.sla_deadline) < new Date(Date.now() + 4 * 3600 * 1000) ? 'text-copper font-medium' : 'text-inkfaint'}`}>
+              SLA: {formatDate(request.sla_deadline)}
+            </span>
+          )}
+        </div>
 
         <p className="mt-2 field-label">Logged {formatDate(request.created_at)}</p>
       </div>

@@ -102,10 +102,13 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
         if user.role in ("PARTNER", "CENTRE"):
-            # Never issued a profile approval yet - distinct from being
-            # deactivated after the fact, so the frontend can show a
-            # dedicated "application under review" message.
-            raise HTTPException(status_code=403, detail="PENDING_APPROVAL")
+            from app.models import AuditLog
+            was_deactivated = db.query(AuditLog).filter(
+                AuditLog.action == "USER_DEACTIVATED",
+                AuditLog.details.like(f"%{user.email}%")
+            ).first() is not None
+            if not was_deactivated:
+                raise HTTPException(status_code=403, detail="PENDING_APPROVAL")
         raise HTTPException(status_code=403, detail="Account is deactivated. Contact support.")
 
     token = create_access_token({"sub": str(user.id)})
@@ -137,6 +140,7 @@ def _serialize_profile(db: Session, user: User) -> ProfileOut:
             data["avg_rating"] = profile.avg_rating
             data["rating_count"] = profile.rating_count
             data["total_earnings"] = profile.total_earnings
+            data["wallet_balance"] = profile.wallet_balance
             data["status"] = profile.status
             data["upi_id"] = profile.upi_id
     elif user.role == "CENTRE":
@@ -147,6 +151,8 @@ def _serialize_profile(db: Session, user: User) -> ProfileOut:
             data["city"] = profile.city
             data["avg_rating"] = profile.avg_rating
             data["rating_count"] = profile.rating_count
+            data["total_earnings"] = profile.total_earnings
+            data["upi_id"] = profile.upi_id
 
     data["referral_count"] = db.query(User).filter(User.referred_by == user.referral_code).count()
     return ProfileOut(**data)

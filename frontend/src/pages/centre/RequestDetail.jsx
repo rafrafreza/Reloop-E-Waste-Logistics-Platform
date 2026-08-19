@@ -19,6 +19,7 @@ export default function CentreRequestDetail() {
   const [acting, setActing] = useState(false);
   const [handling, setHandling] = useState(defaults.handling);
   const [pickup, setPickup] = useState(defaults.pickup);
+  const [priority, setPriority] = useState(defaults.priority);
 
   const load = () => centreApi.getRequest(id).then((res) => setRequest(res.data));
 
@@ -31,7 +32,8 @@ export default function CentreRequestDetail() {
   useEffect(() => {
     setHandling(defaults.handling);
     setPickup(defaults.pickup);
-  }, [defaults.handling, defaults.pickup]);
+    setPriority(defaults.priority);
+  }, [defaults.handling, defaults.pickup, defaults.priority]);
 
   if (!request) return <PageLoader />;
 
@@ -51,7 +53,7 @@ export default function CentreRequestDetail() {
 
   const submitQuote = (e) => {
     e.preventDefault();
-    act(() => centreApi.quote(id, { handling_charge: Number(handling), pickup_charge: Number(pickup) }));
+    act(() => centreApi.quote(id, { handling_charge: Number(handling), pickup_charge: Number(pickup), priority_surcharge: Number(priority) }));
   };
 
   return (
@@ -72,8 +74,9 @@ export default function CentreRequestDetail() {
           {request.address && (
             <p><span className="font-medium text-ink">Address: </span><span className="text-inkfaint">{request.address.street}, {request.address.city}, {request.address.state} {request.address.pincode}</span></p>
           )}
-          {request.preferred_date && (
-            <p><span className="font-medium text-ink">Preferred Pickup Date: </span><span className="font-medium text-circuit">{formatDate(request.preferred_date)}</span></p>
+          <p><span className="font-medium text-ink">Request Type: </span>{request.request_type}</p>
+          {request.sla_deadline && (
+            <p><span className="font-medium text-ink">SLA Deadline: </span><span className={new Date(request.sla_deadline) < new Date(Date.now() + 4 * 3600 * 1000) ? 'text-copper font-medium' : ''}>{formatDate(request.sla_deadline)}</span></p>
           )}
           {request.notes && <p><span className="font-medium text-ink">Notes: </span><span className="text-inkfaint">{request.notes}</span></p>}
         </div>
@@ -98,12 +101,34 @@ export default function CentreRequestDetail() {
         {request.quotation && (
           <>
             <div className="ticket-divider my-4" />
-            <p className="field-label">Quotation</p>
-            <div className="mt-2 space-y-1 text-sm">
-              <div className="flex justify-between"><span className="text-inkfaint">Material value</span><span className="font-mono text-ink">₹{request.quotation.material_value.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-inkfaint">Handling charge</span><span className="font-mono text-ink">− ₹{request.quotation.handling_charge.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-inkfaint">Pickup charge</span><span className="font-mono text-ink">− ₹{request.quotation.pickup_charge.toFixed(2)}</span></div>
-              <div className="flex justify-between border-t border-ink/10 pt-1 font-medium"><span className="text-ink">Total payout</span><span className="font-mono text-lg text-circuit">₹{request.quotation.total_amount.toFixed(2)}</span></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="field-label text-inkfaint">Estimated Quotation</p>
+                <div className="mt-2 space-y-1 text-sm opacity-80">
+                  <div className="flex justify-between"><span className="text-inkfaint">Estimated Material</span><span className="font-mono text-ink">₹{request.quotation.material_value.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-inkfaint">Handling charge</span><span className="font-mono text-ink">− ₹{request.quotation.handling_charge.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-inkfaint">Pickup charge</span><span className="font-mono text-ink">− ₹{request.quotation.pickup_charge.toFixed(2)}</span></div>
+                  {request.quotation.priority_surcharge > 0 && (
+                    <div className="flex justify-between"><span className="text-amber">Priority surcharge</span><span className="font-mono text-amber">− ₹{request.quotation.priority_surcharge.toFixed(2)}</span></div>
+                  )}
+                  <div className="flex justify-between border-t border-ink/10 pt-1 font-medium"><span className="text-ink">Estimated Payout</span><span className="font-mono text-ink">₹{request.quotation.total_amount.toFixed(2)}</span></div>
+                </div>
+              </div>
+              
+              {request.quotation.final_total_amount !== null && (
+                <div className="border-l-0 md:border-l border-t md:border-t-0 border-ink/10 pt-4 md:pt-0 md:pl-6">
+                  <p className="field-label text-circuit">Final Payout (Actual Weights)</p>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-inkfaint">Actual Material</span><span className="font-mono text-ink">₹{request.quotation.final_material_value.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span className="text-inkfaint">Handling charge</span><span className="font-mono text-ink">− ₹{request.quotation.handling_charge.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span className="text-inkfaint">Pickup charge</span><span className="font-mono text-ink">− ₹{request.quotation.pickup_charge.toFixed(2)}</span></div>
+                    {request.quotation.priority_surcharge > 0 && (
+                      <div className="flex justify-between"><span className="text-amber">Priority surcharge</span><span className="font-mono text-amber">− ₹{request.quotation.priority_surcharge.toFixed(2)}</span></div>
+                    )}
+                    <div className="flex justify-between border-t border-circuit/30 pt-1 font-medium"><span className="text-circuit">Final Payout</span><span className="font-mono text-lg text-circuit">₹{request.quotation.final_total_amount.toFixed(2)}</span></div>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -129,6 +154,12 @@ export default function CentreRequestDetail() {
                 <label className="label">Pickup charge (₹)</label>
                 <input type="number" min={0} className="input" value={pickup} onChange={(e) => setPickup(e.target.value)} />
               </div>
+              {request.request_type === "PRIORITY" && (
+                <div className="col-span-2">
+                  <label className="label text-amber">Priority surcharge (₹)</label>
+                  <input type="number" min={0} className="input border-amber/30 focus:border-amber focus:ring-amber/20" value={priority} onChange={(e) => setPriority(e.target.value)} />
+                </div>
+              )}
             </div>
             <button type="submit" disabled={acting} className="btn-primary w-full">Submit quotation</button>
           </form>

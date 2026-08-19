@@ -112,7 +112,11 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
     material_value = sum(
         item.estimated_weight_kg * item.quantity * item.category.base_price_per_kg for item in req.items
     )
-    total = material_value - payload.handling_charge - payload.pickup_charge
+    priority_surcharge = 0.0
+    if req.request_type == "PRIORITY":
+        priority_surcharge = payload.priority_surcharge
+        
+    total = material_value - payload.handling_charge - payload.pickup_charge - priority_surcharge
     floored_total = max(0.0, total)
 
     fee_percent = get_setting_float(db, "platform_fee_percent", 5.0)
@@ -123,6 +127,7 @@ def create_quotation(request_id: int, payload: QuotationCreate, db: Session = De
         material_value=round(material_value, 2),
         handling_charge=round(payload.handling_charge, 2),
         pickup_charge=round(payload.pickup_charge, 2),
+        priority_surcharge=round(priority_surcharge, 2),
         total_amount=round(floored_total, 2),
         platform_commission=round(commission, 2),
         status="PENDING",
@@ -165,15 +170,23 @@ def complete_request(request_id: int, db: Session = Depends(get_db), user: User 
     if req.assignment:
         partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == req.assignment.partner_id).first()
         if partner_profile:
-            partner_profile.status = "AVAILABLE"
-            wallet_credit = req.assignment.pickup_fee
-            # If CASH: reimburse the consumer amount the partner paid out of pocket
+            # Earnings is ONLY the pickup fee
+            partner_profile.total_earnings += req.assignment.pickup_fee
+            
+            # Wallet balance includes earnings + any cash reimbursement
+            reimbursement = 0.0
             if req.payment_method == "CASH" and req.quotation:
-                wallet_credit += req.quotation.total_amount
-            partner_profile.total_earnings += wallet_credit
+                reimbursement = req.quotation.final_total_amount if req.quotation.final_total_amount is not None else req.quotation.total_amount
+                
+            partner_profile.wallet_balance += req.assignment.pickup_fee + reimbursement
+            wallet_credit = req.assignment.pickup_fee + reimbursement
         else:
             wallet_credit = req.assignment.pickup_fee
         req.assignment.pickup_fee_status = "PAID"
+        
+    # Credit handling charge to the segregation centre
+    if req.quotation and centre:
+        centre.total_earnings += req.quotation.handling_charge
         notifs.append(notify(db, req.assignment.partner_id, "Payout settled",
                f"Rs.{wallet_credit:.2f} for request #{req.id} has been added to your wallet."))
 
@@ -382,7 +395,7 @@ def analytics(db: Session = Depends(get_db), user: User = Depends(require_centre
     ]
 
     # 4. Partner Status Distribution in centre's city
-    partner_statuses = ["AVAILABLE", "BUSY", "INACTIVE"]
+    partner_statuses = ["AVAILABLE", "OFFLINE"]
     partners = (
         db.query(PartnerProfile)
         .join(User, PartnerProfile.user_id == User.id)
@@ -391,7 +404,7 @@ def analytics(db: Session = Depends(get_db), user: User = Depends(require_centre
     )
     partner_map = {st: 0 for st in partner_statuses}
     for p in partners:
-        st = p.status if p.status in partner_map else "AVAILABLE"
+        st = p.status if p.status in partner_map else "OFFLINE"
         partner_map[st] += 1
 
     partner_dist = [

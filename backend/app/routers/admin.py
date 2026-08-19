@@ -238,7 +238,19 @@ def list_users(role: str | None = None, db: Session = Depends(get_db), user: Use
     q = db.query(User)
     if role:
         q = q.filter(User.role == role.upper())
-    return q.order_by(User.created_at.desc()).all()
+    users = q.order_by(User.created_at.desc()).all()
+    
+    from app.models import AuditLog
+    deactivated_emails = {
+        row[0].split(":")[-1].strip()
+        for row in db.query(AuditLog.details).filter(AuditLog.action == "USER_DEACTIVATED").all()
+        if row[0]
+    }
+    
+    for u in users:
+        u.was_deactivated = u.email in deactivated_emails
+        
+    return users
 
 
 @router.patch("/users/{user_id}/toggle-active", response_model=UserOut)
@@ -462,29 +474,33 @@ def audit_log(db: Session = Depends(get_db), user: User = Depends(require_admin)
 
 @router.get("/support/tickets", response_model=list[SupportTicketOut])
 def list_all_tickets(status: str | None = None, db: Session = Depends(get_db), user: User = Depends(require_admin)):
-    q = db.query(SupportTicket).options(joinedload(SupportTicket.user))
+    from app.routers.support import _ticket_out
+    from app.models import SupportMessage
+    q = db.query(SupportTicket).options(
+        joinedload(SupportTicket.user),
+        joinedload(SupportTicket.messages).joinedload(SupportMessage.sender)
+    )
     if status:
         q = q.filter(SupportTicket.status == status.upper())
     tickets = q.order_by(SupportTicket.created_at.desc()).all()
-    return [
-        SupportTicketOut(
-            id=t.id, user_id=t.user_id, user_name=t.user.full_name if t.user else None,
-            user_role=t.user.role if t.user else None, request_id=t.request_id, subject=t.subject,
-            message=t.message, status=t.status, admin_response=t.admin_response,
-            created_at=t.created_at, updated_at=t.updated_at,
-        )
-        for t in tickets
-    ]
-
+    return [_ticket_out(t) for t in tickets]
 
 @router.put("/support/tickets/{ticket_id}", response_model=SupportTicketOut)
 def respond_to_ticket(ticket_id: int, payload: SupportTicketAdminUpdate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
-    ticket = db.query(SupportTicket).options(joinedload(SupportTicket.user)).filter(SupportTicket.id == ticket_id).first()
+    from app.routers.support import _ticket_out
+    from app.models import SupportMessage
+    ticket = (
+        db.query(SupportTicket)
+        .options(
+            joinedload(SupportTicket.user),
+            joinedload(SupportTicket.messages).joinedload(SupportMessage.sender)
+        )
+        .filter(SupportTicket.id == ticket_id)
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     ticket.status = payload.status
-    if payload.admin_response is not None:
-        ticket.admin_response = payload.admin_response
     log_audit(db, user.id, "SUPPORT_TICKET_UPDATED", f"#{ticket.id} -> {payload.status}")
     notif_payload = notify(db, ticket.user_id, "Support ticket updated",
            f"Your ticket \"{ticket.subject}\" is now {payload.status.replace('_', ' ').title()}.",
@@ -494,12 +510,7 @@ def respond_to_ticket(ticket_id: int, payload: SupportTicketAdminUpdate, db: Ses
     if notif_payload:
         from app.websocket import manager
         manager.push_sync(notif_payload["user_id"], notif_payload)
-    return SupportTicketOut(
-        id=ticket.id, user_id=ticket.user_id, user_name=ticket.user.full_name if ticket.user else None,
-        user_role=ticket.user.role if ticket.user else None, request_id=ticket.request_id, subject=ticket.subject,
-        message=ticket.message, status=ticket.status, admin_response=ticket.admin_response,
-        created_at=ticket.created_at, updated_at=ticket.updated_at,
-    )
+    return _ticket_out(ticket)
 
 
 # ---------------------------------------------------------------------------

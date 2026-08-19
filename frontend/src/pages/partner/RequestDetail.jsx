@@ -49,12 +49,20 @@ export default function PartnerRequestDetail() {
     }
   };
 
+  const handleUpdateWeights = async (e) => {
+    e.preventDefault();
+    await act(() =>
+      partnerApi.updateWeights(id, {
+        items: request.items.map((i) => ({ item_id: i.id, actual_weight_kg: Number(weights[i.id]) })),
+      })
+    );
+  };
+
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     await act(() =>
       partnerApi.verifyOtp(id, {
         otp: otpInput,
-        items: request.items.map((i) => ({ item_id: i.id, actual_weight_kg: Number(weights[i.id]) })),
       })
     );
   };
@@ -74,8 +82,9 @@ export default function PartnerRequestDetail() {
 
         <div className="mt-4 space-y-1 text-sm">
           <p><span className="font-medium text-ink">Consumer: </span><span className="text-inkfaint">{request.consumer_name} {request.consumer_phone && `· ${request.consumer_phone}`}</span></p>
-          {request.preferred_date && (
-            <p><span className="font-medium text-ink">Preferred Pickup Date: </span><span className="font-medium text-circuit">{formatDate(request.preferred_date)}</span></p>
+          <p><span className="font-medium text-ink">Request Type: </span>{request.request_type}</p>
+          {request.sla_deadline && (
+            <p><span className="font-medium text-ink">SLA Deadline: </span><span className={new Date(request.sla_deadline) < new Date(Date.now() + 4 * 3600 * 1000) ? 'text-copper font-medium' : ''}>{formatDate(request.sla_deadline)}</span></p>
           )}
           {request.address && (
             <div>
@@ -119,6 +128,36 @@ export default function PartnerRequestDetail() {
         </div>
 
         <div className="ticket-divider my-4" />
+        
+        {request.assignment && (
+          <div className="rounded border border-circuit/30 bg-circuitlight p-4 mb-4">
+            <p className="field-label text-circuitdark">Your Earnings</p>
+            <p className="mt-1 font-mono text-2xl text-circuit">₹{request.assignment.pickup_fee.toFixed(2)}</p>
+          </div>
+        )}
+        
+        {request.status !== "ACCEPTED" && request.status !== "PENDING" && request.status !== "QUOTED" && request.quotation && (
+          <div className="rounded border border-ink/10 bg-paperdim p-4 mb-4 space-y-2 text-sm">
+            <p className="field-label">Consumer Payout Info</p>
+            <div className="flex justify-between">
+              <span className="text-inkfaint">Payment Method</span>
+              <span className="font-mono text-ink font-medium">{request.payment_method === "CASH" ? "CASH (Pay at door)" : "ONLINE (UPI)"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-inkfaint">{request.quotation.final_total_amount !== null ? "Final Amount" : "Estimated Amount"}</span>
+              <span className="font-mono text-ink text-lg text-circuit">
+                ₹{request.quotation.final_total_amount !== null ? request.quotation.final_total_amount.toFixed(2) : request.quotation.total_amount.toFixed(2)}
+              </span>
+            </div>
+            {request.payment_method === "CASH" && (
+              <p className="text-xs text-copper mt-2 pt-2 border-t border-ink/10 font-medium">
+                You must pay this amount in cash to the consumer. It will be added to your wallet balance for reimbursement.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="ticket-divider my-4" />
 
         {request.status === "ACCEPTED" && (
           <button disabled={acting} onClick={() => act(() => partnerApi.acceptRequest(id), "Accept this request and begin the assignment?")} className="btn-circuit w-full bg-circuit text-white hover:bg-circuitdark py-3 rounded font-medium shadow-sm">
@@ -133,40 +172,53 @@ export default function PartnerRequestDetail() {
         )}
 
         {request.status === "OUT_FOR_PICKUP" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-3">
-            <p className="field-label text-copper">Ask the consumer for their handover OTP</p>
-            <input
-              required
-              className="input font-mono text-lg tracking-widest"
-              maxLength={6}
-              value={otpInput}
-              onChange={(e) => setOtpInput(e.target.value)}
-              placeholder="6-digit OTP"
-            />
-            <p className="field-label">Confirm actual weight collected per item</p>
-            {request.items.map((i) => (
-              <div key={i.id} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-ink">{i.category_name}</span>
-                <input
-                  type="number"
-                  step={0.1}
-                  min={0.1}
-                  required
-                  className="input w-28"
-                  value={weights[i.id] ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (/^\d*\.?\d*$/.test(val)) {
-                      setWeights((w) => ({ ...w, [i.id]: val }));
-                    }
-                  }}
-                />
+          <div className="space-y-6 mt-6">
+            <form onSubmit={handleUpdateWeights} className="space-y-4 rounded border border-ink/10 p-5 bg-paperdim">
+              <p className="field-label text-copper">1. Record Actual Weights</p>
+              <p className="text-sm text-inkfaint mb-4">Enter actual weights to calculate final payout for consumer review.</p>
+              <div className="space-y-3">
+                {request.items.map((i) => (
+                  <div key={i.id} className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-ink">{i.category_name}</span>
+                    <input
+                      type="number"
+                      step={0.1}
+                      min={0.1}
+                      required
+                      className="input w-28 bg-white"
+                      value={weights[i.id] ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^\d*\.?\d*$/.test(val)) {
+                          setWeights((w) => ({ ...w, [i.id]: val }));
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-            <button type="submit" disabled={acting} className="btn-primary w-full">
-              Verify OTP &amp; confirm collection
-            </button>
-          </form>
+              <button type="submit" disabled={acting} className="btn-secondary w-full bg-white">
+                Calculate & Update Final Payout
+              </button>
+            </form>
+
+            <form onSubmit={handleVerifyOtp} className={`space-y-4 rounded border p-5 ${request.quotation?.final_total_amount !== null ? "border-circuit/30 bg-circuitlight/30" : "border-ink/10 bg-paperdim opacity-50 pointer-events-none"}`}>
+              <p className="field-label text-circuitdark">2. Consumer Approval & Handover OTP</p>
+              <p className="text-sm text-inkfaint mb-4">Ask the consumer to review the final payout on their app and provide their OTP.</p>
+              <input
+                required
+                className="input font-mono text-lg tracking-widest bg-white"
+                maxLength={6}
+                value={otpInput}
+                onChange={(e) => setOtpInput(e.target.value)}
+                placeholder="6-digit OTP"
+                disabled={request.quotation?.final_total_amount === null}
+              />
+              <button type="submit" disabled={acting || request.quotation?.final_total_amount === null} className="btn-primary w-full shadow-sm">
+                Verify OTP & Confirm Collection
+              </button>
+            </form>
+          </div>
         )}
 
         {request.status === "PICKED_UP" && (

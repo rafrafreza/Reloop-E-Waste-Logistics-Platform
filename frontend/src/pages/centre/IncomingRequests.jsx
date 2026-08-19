@@ -75,11 +75,14 @@ export default function IncomingRequests() {
         {quoting && (
           <form onSubmit={submitQuote} className="space-y-4">
             {error && <Banner kind="error">{error}</Banner>}
-            {quoting.preferred_date && (
-              <p className="text-xs font-medium text-circuit">
-                Preferred Pickup Date: {formatDate(quoting.preferred_date)}
-              </p>
-            )}
+            <div className="flex gap-2">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded ${quoting.request_type === 'PRIORITY' ? 'bg-circuitlight text-circuitdark' : 'bg-paperdim text-inkfaint'}`}>
+                {quoting.request_type}
+              </span>
+              {quoting.sla_deadline && (
+                <span className="text-xs text-inkfaint">SLA: {formatDate(quoting.sla_deadline)}</span>
+              )}
+            </div>
             <div>
               <p className="field-label">Items</p>
               <ul className="mt-2 space-y-2 text-sm text-ink">

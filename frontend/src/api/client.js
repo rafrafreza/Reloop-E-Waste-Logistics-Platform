@@ -29,7 +29,14 @@ client.interceptors.response.use(
 );
 
 export function apiErrorMessage(error, fallback = "Something went wrong. Please try again.") {
-  return error?.response?.data?.detail || fallback;
+  const detail = error?.response?.data?.detail;
+  if (Array.isArray(detail) && detail.length > 0 && detail[0].msg) {
+    return detail[0].msg;
+  }
+  if (typeof detail === "string") {
+    return detail;
+  }
+  return fallback;
 }
 
 export default client;

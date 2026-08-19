@@ -90,6 +90,8 @@ class CentreProfile(Base):
     capacity_kg: Mapped[float] = mapped_column(Float, default=5000.0)
     avg_rating: Mapped[float] = mapped_column(Float, default=0.0)
     rating_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_earnings: Mapped[float] = mapped_column(Float, default=0.0)
+    upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="centre_profile")
 
@@ -102,11 +104,12 @@ class PartnerProfile(Base):
     vehicle_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="AVAILABLE")
-    # AVAILABLE | BUSY | OFFLINE
+    # AVAILABLE | OFFLINE
     centre_id: Mapped[int | None] = mapped_column(ForeignKey("centre_profiles.id"), nullable=True)
     avg_rating: Mapped[float] = mapped_column(Float, default=0.0)
     rating_count: Mapped[int] = mapped_column(Integer, default=0)
     total_earnings: Mapped[float] = mapped_column(Float, default=0.0)
+    wallet_balance: Mapped[float] = mapped_column(Float, default=0.0)
     upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="partner_profile")
@@ -144,7 +147,8 @@ class CollectionRequest(Base):
     pickup_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default="PENDING", index=True)
-    preferred_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    request_type: Mapped[str] = mapped_column(String(20), default="NORMAL")
+    quote_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     pickup_otp: Mapped[str | None] = mapped_column(String(6), nullable=True)
     payment_method: Mapped[str] = mapped_column(String(20), default="ONLINE")
@@ -203,7 +207,10 @@ class Quotation(Base):
     material_value: Mapped[float] = mapped_column(Float, default=0.0)
     handling_charge: Mapped[float] = mapped_column(Float, default=0.0)
     pickup_charge: Mapped[float] = mapped_column(Float, default=0.0)
+    priority_surcharge: Mapped[float] = mapped_column(Float, default=0.0)
     total_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    final_material_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_total_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDING")
     # PENDING | ACCEPTED | REJECTED
     # Informational only (does not affect the consumer payout above) -
@@ -290,12 +297,24 @@ class SupportTicket(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="OPEN", index=True)
     # OPEN | IN_PROGRESS | RESOLVED | CLOSED
-    admin_response: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 
     user: Mapped["User"] = relationship(foreign_keys=[user_id])
     request: Mapped["CollectionRequest | None"] = relationship()
+    messages: Mapped[list["SupportMessage"]] = relationship(back_populates="ticket", cascade="all, delete-orphan", order_by="SupportMessage.created_at")
+
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id"), nullable=False, index=True)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+    ticket: Mapped["SupportTicket"] = relationship(back_populates="messages")
+    sender: Mapped["User"] = relationship()
 
 
 class AuditLog(Base):

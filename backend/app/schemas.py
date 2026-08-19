@@ -63,6 +63,7 @@ class UserOut(BaseModel):
     created_at: datetime
     referral_code: str
     reward_points: int
+    was_deactivated: bool = False
 
     class Config:
         from_attributes = True
@@ -83,6 +84,7 @@ class ProfileOut(UserOut):
     avg_rating: float | None = None
     rating_count: int | None = None
     total_earnings: float | None = None
+    wallet_balance: float | None = None
     upi_id: str | None = None
     referral_count: int = 0
     status: str | None = None
@@ -200,7 +202,7 @@ class RequestItemOut(BaseModel):
 
 class CollectionRequestCreate(BaseModel):
     address_id: int
-    preferred_date: datetime | None = None
+    request_type: str = "NORMAL"
     notes: str | None = None
     items: list[RequestItemCreate]
 
@@ -209,6 +211,14 @@ class CollectionRequestCreate(BaseModel):
     def must_have_items(cls, v):
         if not v:
             raise ValueError("At least one item is required")
+        return v
+        
+    @field_validator("request_type")
+    @classmethod
+    def valid_request_type(cls, v: str) -> str:
+        v = v.upper()
+        if v not in {"NORMAL", "PRIORITY"}:
+            raise ValueError("request_type must be NORMAL or PRIORITY")
         return v
 
 
@@ -230,7 +240,10 @@ class QuotationOut(BaseModel):
     material_value: float
     handling_charge: float
     pickup_charge: float
+    priority_surcharge: float = 0.0
     total_amount: float
+    final_material_value: float | None = None
+    final_total_amount: float | None = None
     status: str
     platform_commission: float = 0.0
     created_at: datetime
@@ -242,6 +255,7 @@ class QuotationOut(BaseModel):
 class QuotationCreate(BaseModel):
     handling_charge: float = 0.0
     pickup_charge: float = 0.0
+    priority_surcharge: float = 0.0
 
 
 class StatusHistoryOut(BaseModel):
@@ -311,7 +325,9 @@ class CollectionRequestOut(BaseModel):
     centre_name: str | None = None
     centre_address: str | None = None
     status: str
-    preferred_date: datetime | None
+    request_type: str
+    quote_accepted_at: datetime | None = None
+    sla_deadline: datetime | None = None
     notes: str | None
     pickup_otp: str | None = None
     payment_method: str = "ONLINE"
@@ -341,9 +357,11 @@ class OtpVerifyItem(BaseModel):
     actual_weight_kg: float = Field(..., gt=0)
 
 
+class UpdateWeightsRequest(BaseModel):
+    items: list[OtpVerifyItem]
+
 class OtpVerifyRequest(BaseModel):
     otp: str
-    items: list[OtpVerifyItem]
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +394,6 @@ class SupportTicketCreate(BaseModel):
 
 class SupportTicketAdminUpdate(BaseModel):
     status: str
-    admin_response: str | None = None
 
     @field_validator("status")
     @classmethod
@@ -387,6 +404,20 @@ class SupportTicketAdminUpdate(BaseModel):
         return v
 
 
+class SupportMessageCreate(BaseModel):
+    message: str = Field(..., min_length=1)
+
+class SupportMessageOut(BaseModel):
+    id: int
+    sender_id: int
+    sender_name: str | None = None
+    sender_role: str | None = None
+    message: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class SupportTicketOut(BaseModel):
     id: int
     user_id: int
@@ -396,9 +427,9 @@ class SupportTicketOut(BaseModel):
     subject: str
     message: str
     status: str
-    admin_response: str | None
     created_at: datetime
     updated_at: datetime
+    messages: list[SupportMessageOut] = []
 
     class Config:
         from_attributes = True
@@ -501,6 +532,7 @@ class PartnerEarningsOut(BaseModel):
     total_earnings: float
     paid_earnings: float
     pending_earnings: float
+    wallet_balance: float = 0.0
     completed_jobs: int
     avg_rating: float
     rating_count: int

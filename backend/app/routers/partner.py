@@ -14,7 +14,7 @@ from app.models import (
     User,
     Address,
 )
-from app.schemas import CollectionRequestOut, DashboardStats, OtpVerifyRequest, PartnerEarningsOut
+from app.schemas import CollectionRequestOut, DashboardStats, OtpVerifyRequest, PartnerEarningsOut, UpdateWeightsRequest
 from app.utils import log_status, notify, to_request_out, get_setting_float
 
 router = APIRouter(prefix="/api/partner", tags=["partner"])
@@ -53,8 +53,8 @@ def list_requests(scope: str = "active", db: Session = Depends(get_db), user: Us
         q = q.filter(CollectionRequest.status.in_(ACTIVE_STATUSES))
     elif scope == "history":
         q = q.filter(CollectionRequest.status.in_(HISTORY_STATUSES))
-    else:
-        raise HTTPException(status_code=400, detail="scope must be active or history")
+    elif scope != "all":
+        raise HTTPException(status_code=400, detail="scope must be active, history, or all")
 
     reqs = q.order_by(CollectionRequest.updated_at.desc()).all()
     return [to_request_out(r) for r in reqs]
@@ -66,14 +66,9 @@ def list_available_requests(db: Session = Depends(get_db), user: User = Depends(
     if not partner_profile:
         raise HTTPException(status_code=400, detail="Partner profile not found")
         
-    today = datetime.now(timezone.utc).date()
     q = _request_query(db).filter(
         CollectionRequest.status == "ACCEPTED",
-        CollectionRequest.pickup_city == partner_profile.city,
-        or_(
-            CollectionRequest.preferred_date == None,
-            func.date(CollectionRequest.preferred_date) <= today
-        )
+        CollectionRequest.pickup_city == partner_profile.city
     )
     reqs = q.order_by(CollectionRequest.updated_at.desc()).all()
     return [to_request_out(r) for r in reqs]
@@ -85,30 +80,41 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
     if not partner_profile:
         raise HTTPException(status_code=400, detail="Partner profile not found")
         
-    if partner_profile.status != "AVAILABLE":
-        raise HTTPException(status_code=400, detail="You must be AVAILABLE to accept a request")
+    if partner_profile.status == "OFFLINE":
+        raise HTTPException(status_code=400, detail="You must be online to accept a request")
+        
+    from app.utils import get_setting_int
+    max_concurrent = get_setting_int(db, "partner_max_concurrent_requests", 10)
+    
+    current_active = db.query(CollectionRequest).join(Assignment).filter(
+        Assignment.partner_id == user.id,
+        CollectionRequest.status.in_(["ASSIGNED", "OUT_FOR_PICKUP"])
+    ).count()
+    
+    if current_active >= max_concurrent:
+        raise HTTPException(status_code=400, detail=f"You have reached the maximum concurrent requests cap ({max_concurrent}). Complete some pickups first.")
         
     req = _request_query(db).filter(CollectionRequest.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "ACCEPTED":
         raise HTTPException(status_code=400, detail="This request is no longer available to be accepted")
-
-    if req.preferred_date and req.preferred_date.date() > datetime.now(timezone.utc).date():
-        raise HTTPException(status_code=400, detail="This pickup request is scheduled for a future date and cannot be accepted yet")
         
     # ensure it's in their city
     if req.pickup_city != partner_profile.city:
         raise HTTPException(status_code=400, detail="This request is outside your service city")
         
-    from app.utils import generate_otp
+    from app.utils import generate_otp, get_setting_float
     otp = generate_otp()
-    payout = get_setting_float(db, "partner_pickup_fee", 40.0)
+    
+    # Partner payout = Pickup charge (from quote) + Priority surcharge (from quote)
+    payout = req.quotation.pickup_charge
+    if req.request_type == "PRIORITY":
+        payout += req.quotation.priority_surcharge
     
     db.add(Assignment(request_id=req.id, partner_id=user.id, pickup_fee=round(payout, 2)))
     req.status = "ASSIGNED"
     req.pickup_otp = otp
-    partner_profile.status = "BUSY"
     
     log_status(db, req.id, "ASSIGNED", f"Accepted by pickup partner {user.full_name}")
     notif_payload = notify(db, req.consumer_id, "Pickup partner assigned",
@@ -157,13 +163,11 @@ def start_pickup(request_id: int, db: Session = Depends(get_db), user: User = De
     return to_request_out(_get_assigned_request(db, request_id, user.id))
 
 
-@router.post("/requests/{request_id}/verify-otp", response_model=CollectionRequestOut)
-def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends(get_db), user: User = Depends(require_partner)):
+@router.post("/requests/{request_id}/weights", response_model=CollectionRequestOut)
+def update_weights(request_id: int, payload: UpdateWeightsRequest, db: Session = Depends(get_db), user: User = Depends(require_partner)):
     req = _get_assigned_request(db, request_id, user.id)
     if req.status != "OUT_FOR_PICKUP":
-        raise HTTPException(status_code=400, detail="Start the pickup before verifying the handover OTP")
-    if payload.otp != req.pickup_otp:
-        raise HTTPException(status_code=400, detail="Incorrect OTP")
+        raise HTTPException(status_code=400, detail="Pickup must be started before updating weights")
 
     items_by_id = {i.id: i for i in req.items}
     for entry in payload.items:
@@ -179,10 +183,27 @@ def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends
             if item.category:
                 new_material_value += weight * item.quantity * item.category.base_price_per_kg
         
-        req.quotation.material_value = round(new_material_value, 2)
-        new_total = new_material_value - req.quotation.handling_charge - req.quotation.pickup_charge
-        req.quotation.total_amount = max(0.0, round(new_total, 2))
-        req.quotation.platform_commission = round(new_material_value * 0.10, 2)
+        req.quotation.final_material_value = round(new_material_value, 2)
+        new_total = new_material_value - req.quotation.handling_charge - req.quotation.pickup_charge - req.quotation.priority_surcharge
+        req.quotation.final_total_amount = max(0.0, round(new_total, 2))
+
+    log_status(db, req.id, "OUT_FOR_PICKUP", "Actual weights updated for consumer review")
+    notif_payload = notify(db, req.consumer_id, "Payout updated",
+           f"Your partner has captured the actual weight. Please review your updated payout.")
+    db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
+    return to_request_out(_get_assigned_request(db, request_id, user.id))
+
+
+@router.post("/requests/{request_id}/verify-otp", response_model=CollectionRequestOut)
+def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    req = _get_assigned_request(db, request_id, user.id)
+    if req.status != "OUT_FOR_PICKUP":
+        raise HTTPException(status_code=400, detail="Start the pickup before verifying the handover OTP")
+    if payload.otp != req.pickup_otp:
+        raise HTTPException(status_code=400, detail="Incorrect OTP")
 
     req.status = "PICKED_UP"
     log_status(db, req.id, "PICKED_UP", "OTP verified, items collected from consumer")
@@ -220,8 +241,6 @@ def deliver_to_centre(request_id: int, db: Session = Depends(get_db), user: User
     log_status(db, req.id, "AT_CENTRE", "Delivered to segregation centre")
 
     partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
-    if partner_profile:
-        partner_profile.status = "AVAILABLE"
 
     notif_payload = None
     if req.centre:
@@ -263,8 +282,6 @@ def set_availability(available: bool, db: Session = Depends(get_db), user: User 
     profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
     if not profile:
         raise HTTPException(status_code=400, detail="No partner profile associated with this account")
-    if profile.status == "BUSY":
-        raise HTTPException(status_code=400, detail="You can't change availability while on an active job")
     profile.status = "AVAILABLE" if available else "OFFLINE"
     db.commit()
     return {"status": profile.status}
@@ -292,6 +309,7 @@ def earnings(db: Session = Depends(get_db), user: User = Depends(require_partner
         total_earnings=round(profile.total_earnings + pending_total, 2),
         paid_earnings=round(profile.total_earnings, 2),
         pending_earnings=round(pending_total, 2),
+        wallet_balance=round(profile.wallet_balance, 2),
         completed_jobs=completed_jobs,
         avg_rating=profile.avg_rating,
         rating_count=profile.rating_count,
