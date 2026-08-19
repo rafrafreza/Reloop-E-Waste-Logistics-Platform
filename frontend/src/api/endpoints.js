@@ -52,6 +52,7 @@ export const supportApi = {
   listMine: () => client.get("/api/support/tickets"),
   get: (id) => client.get(`/api/support/tickets/${id}`),
   create: (payload) => client.post("/api/support/tickets", payload),
+  addMessage: (id, payload) => client.post(`/api/support/tickets/${id}/messages`, payload),
 };
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,7 @@ export const partnerApi = {
   listRequests: (scope) => client.get("/api/partner/requests", { params: { scope } }),
   getRequest: (id) => client.get(`/api/partner/requests/${id}`),
   startPickup: (id) => client.post(`/api/partner/requests/${id}/start`),
+  updateWeights: (id, payload) => client.post(`/api/partner/requests/${id}/weights`, payload),
   verifyOtp: (id, payload) => client.post(`/api/partner/requests/${id}/verify-otp`, payload),
   deliver: (id) => client.post(`/api/partner/requests/${id}/deliver`),
   dashboard: () => client.get("/api/partner/dashboard"),

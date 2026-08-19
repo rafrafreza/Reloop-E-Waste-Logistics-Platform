@@ -7,7 +7,7 @@ import { commonApi } from "../api/endpoints";
  * to { handling: 30, pickup: 50 } while loading or if parsing fails.
  */
 export default function useDefaultCharges() {
-  const [charges, setCharges] = useState({ handling: 30, pickup: 50 });
+  const [charges, setCharges] = useState({ handling: 30, pickup: 50, priority: 100 });
 
   useEffect(() => {
     let cancelled = false;
@@ -17,9 +17,11 @@ export default function useDefaultCharges() {
         if (cancelled) return;
         const handling = Number(res.data.default_handling_charge);
         const pickup = Number(res.data.default_pickup_charge);
+        const priority = Number(res.data.priority_surcharge);
         setCharges({
           handling: Number.isFinite(handling) ? handling : 30,
           pickup: Number.isFinite(pickup) ? pickup : 50,
+          priority: Number.isFinite(priority) ? priority : 100,
         });
       })
       .catch(() => {});

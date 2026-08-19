@@ -19,7 +19,7 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> dict | None:
     if not req.quotation:
         return notif_payload
 
-    amount = req.quotation.total_amount
+    amount = req.quotation.final_total_amount if req.quotation.final_total_amount is not None else req.quotation.total_amount
     if amount <= 0:
         return notif_payload
 

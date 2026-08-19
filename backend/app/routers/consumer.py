@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
+from datetime import datetime, timezone
 
 from app.auth import require_role
 from app.database import get_db
@@ -113,7 +114,7 @@ def create_request(payload: CollectionRequestCreate, db: Session = Depends(get_d
         pickup_lat=addr.lat,
         pickup_lng=addr.lng,
         status="PENDING",
-        preferred_date=payload.preferred_date,
+        request_type=payload.request_type,
         notes=payload.notes,
     )
     db.add(req)
@@ -201,6 +202,7 @@ def accept_quote(
     req.consumer_upi_id = payload.upi_id if payload.payment_method == "ONLINE" else None
     req.status = "ACCEPTED"
     req.quotation.status = "ACCEPTED"
+    req.quote_accepted_at = datetime.now(timezone.utc)
     log_status(db, req.id, "ACCEPTED", "Consumer accepted the quotation")
 
     notif_payload = None

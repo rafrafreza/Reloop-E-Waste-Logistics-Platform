@@ -18,6 +18,7 @@ const NAV_ITEMS = {
   PARTNER: [
     { to: "/partner", label: "Dashboard", icon: "grid", end: true },
     { to: "/partner/assignments", label: "Assignments", icon: "truck" },
+    { to: "/partner/my-items", label: "My Items", icon: "box" },
     { to: "/partner/earnings", label: "Earnings", icon: "money" },
     { to: "/partner/history", label: "History", icon: "list" },
     { to: "/partner/support", label: "Support", icon: "help" },
@@ -29,6 +30,7 @@ const NAV_ITEMS = {
     { to: "/centre/active", label: "Active Pipeline", icon: "truck" },
     { to: "/centre/inventory", label: "Warehouse", icon: "box" },
     { to: "/centre/history", label: "History", icon: "list" },
+    { to: "/centre/finance", label: "Finance Ledger", icon: "trending" },
     { to: "/centre/support", label: "Support", icon: "help" },
     { to: "/centre/profile", label: "Profile", icon: "user" },
   ],

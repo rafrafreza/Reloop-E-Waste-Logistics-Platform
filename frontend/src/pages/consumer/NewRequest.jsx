@@ -36,14 +36,14 @@ export default function NewRequest() {
   const [categories, setCategories] = useState(null);
   const [addressId, setAddressId] = useState(draft?.addressId || null);
   const [items, setItems] = useState(draft?.items || []);
-  const [preferredDate, setPreferredDate] = useState(draft?.preferredDate || "");
+  const [requestType, setRequestType] = useState(draft?.requestType || "NORMAL");
   const [notes, setNotes] = useState(draft?.notes || "");
 
   useEffect(() => {
     sessionStorage.setItem("new_request_draft", JSON.stringify({
-      step, addressId, items, preferredDate, notes
+      step, addressId, items, requestType, notes
     }));
-  }, [step, addressId, items, preferredDate, notes]);
+  }, [step, addressId, items, requestType, notes]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploadingKey, setUploadingKey] = useState(null);
@@ -114,7 +114,7 @@ export default function NewRequest() {
     try {
       const payload = {
         address_id: addressId,
-        preferred_date: preferredDate ? new Date(preferredDate).toISOString() : null,
+        request_type: requestType,
         notes: notes || null,
         items: items.map((i) => ({
           category_id: i.category_id,
@@ -335,8 +335,19 @@ export default function NewRequest() {
           <div>
             <h2 className="font-medium text-ink">Schedule &amp; review</h2>
             <div className="mt-4">
-              <label className="label">Preferred pickup date (optional)</label>
-              <input type="date" className="input" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+              <label className="label">Pickup speed</label>
+              <div className="flex gap-3 mt-2">
+                <label className={`flex-1 border p-3 rounded cursor-pointer ${requestType === "NORMAL" ? "border-circuit bg-circuitlight/20" : "border-ink/20"}`}>
+                  <input type="radio" name="requestType" value="NORMAL" checked={requestType === "NORMAL"} onChange={() => setRequestType("NORMAL")} className="hidden" />
+                  <span className="font-medium text-ink block">Standard (Normal)</span>
+                  <span className="text-xs text-inkfaint mt-1 block">Pickup within 7 days</span>
+                </label>
+                <label className={`flex-1 border p-3 rounded cursor-pointer ${requestType === "PRIORITY" ? "border-circuit bg-circuitlight/20" : "border-ink/20"}`}>
+                  <input type="radio" name="requestType" value="PRIORITY" checked={requestType === "PRIORITY"} onChange={() => setRequestType("PRIORITY")} className="hidden" />
+                  <span className="font-medium text-ink block">Priority</span>
+                  <span className="text-xs text-inkfaint mt-1 block">Pickup within 24h<br/>(Additional surcharge applies)</span>
+                </label>
+              </div>
             </div>
             <div className="mt-3">
               <label className="label">Notes for the partner (optional)</label>

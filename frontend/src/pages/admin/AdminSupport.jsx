@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { adminApi } from "../../api/endpoints";
-import { apiErrorMessage } from "../../api/client";
-import { PageLoader, EmptyState, Banner, Modal } from "../../components/ui/Primitives";
-import { formatDateTime } from "../../utils/date";
+import { adminApi, supportApi } from "../../api/endpoints";
+import { PageLoader, EmptyState } from "../../components/ui/Primitives";
 
 const STATUS_STYLE = {
   OPEN: "text-amber bg-amberlight border-amber/40",
@@ -23,11 +21,6 @@ export default function AdminSupport() {
     else searchParams.delete("status");
     setSearchParams(searchParams);
   };
-  const [replying, setReplying] = useState(null);
-  const [response, setResponse] = useState("");
-  const [newStatus, setNewStatus] = useState("IN_PROGRESS");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const load = () => adminApi.listTickets(status || undefined).then((res) => setTickets(res.data));
 
@@ -37,25 +30,21 @@ export default function AdminSupport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  const openReply = (ticket) => {
-    setReplying(ticket);
-    setResponse(ticket.admin_response || "");
-    setNewStatus(ticket.status === "OPEN" ? "IN_PROGRESS" : ticket.status);
-    setError("");
-  };
-
-  const submitReply = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
+  const submitStatus = async (ticketId, newStatus) => {
     try {
-      await adminApi.respondToTicket(replying.id, { status: newStatus, admin_response: response || null });
-      setReplying(null);
+      await adminApi.respondToTicket(ticketId, { status: newStatus });
       await load();
     } catch (err) {
-      setError(apiErrorMessage(err, "Could not update ticket"));
-    } finally {
-      setSaving(false);
+      alert("Could not update status");
+    }
+  };
+
+  const handleReply = async (ticketId, message) => {
+    try {
+      await supportApi.addMessage(ticketId, { message });
+      await load();
+    } catch (err) {
+      alert("Could not send reply");
     }
   };
 
@@ -86,8 +75,8 @@ export default function AdminSupport() {
         ) : (
           tickets.map((t) => (
             <div key={t.id} className="ticket p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-inkfaint">#{t.id}</span>
                     <span className={`rounded border px-2 py-0.5 font-mono text-[11px] uppercase ${STATUS_STYLE[t.status]}`}>{t.status.replace("_", " ")}</span>
@@ -95,50 +84,56 @@ export default function AdminSupport() {
                     {t.request_id && <span className="field-label">Request #{String(t.request_id).padStart(5, "0")}</span>}
                   </div>
                   <p className="mt-1.5 font-medium text-ink">{t.subject}</p>
-                  <p className="mt-1 text-sm text-inkfaint">{t.message}</p>
-                  {t.admin_response && (
-                    <div className="mt-2 rounded border border-circuit/30 bg-circuitlight p-2">
-                      <p className="text-sm text-ink">{t.admin_response}</p>
+                  
+                  <div className="ticket-divider mt-4 pt-4 space-y-3">
+                    <div className="rounded border border-ink/10 bg-paper p-3">
+                      <p className="field-label text-ink">{t.user_name} ({t.user_role})</p>
+                      <p className="mt-1 text-sm text-ink">{t.message}</p>
                     </div>
-                  )}
-                  <p className="field-label mt-2">{formatDateTime(t.created_at)}</p>
+                    {t.messages && t.messages.map(m => (
+                      <div key={m.id} className={`rounded border p-3 ${m.sender_role === 'ADMIN' ? 'border-circuit/30 bg-circuitlight' : 'border-ink/10 bg-paper'}`}>
+                        <p className={`field-label ${m.sender_role === 'ADMIN' ? 'text-circuitdark' : 'text-ink'}`}>{m.sender_role === 'ADMIN' ? 'You' : `${m.sender_name} (${m.sender_role})`}</p>
+                        <p className="mt-1 text-sm text-ink">{m.message}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const input = e.target.elements.reply;
+                    const msg = input.value;
+                    if (!msg.trim()) return;
+                    input.disabled = true;
+                    try {
+                      await handleReply(t.id, msg);
+                      input.value = "";
+                    } finally {
+                      input.disabled = false;
+                    }
+                  }} className="mt-4 flex gap-2">
+                    <input name="reply" type="text" placeholder="Type a reply..." className="input flex-1" required />
+                    <button type="submit" className="btn-secondary">Reply</button>
+                  </form>
                 </div>
-                <button onClick={() => openReply(t)} className="btn-secondary shrink-0 text-xs">
-                  {t.admin_response ? "Update" : "Respond"}
-                </button>
+
+                <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end">
+                  <p className="field-label mb-1 hidden sm:block">Status</p>
+                  <select 
+                    className="input py-1 text-sm h-8" 
+                    value={t.status}
+                    onChange={(e) => submitStatus(t.id, e.target.value)}
+                  >
+                    <option value="OPEN">Open</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
+                    <option value="CLOSED">Closed</option>
+                  </select>
+                </div>
               </div>
             </div>
           ))
         )}
       </div>
-
-      <Modal open={!!replying} onClose={() => setReplying(null)} title={replying ? `Respond to ticket #${replying.id}` : ""}>
-        {replying && (
-          <form onSubmit={submitReply} className="space-y-3">
-            {error && <Banner kind="error">{error}</Banner>}
-            <div>
-              <p className="field-label">Original message</p>
-              <p className="mt-1 text-sm text-inkfaint">{replying.message}</p>
-            </div>
-            <div>
-              <label className="label">Status</label>
-              <select className="input" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                <option value="OPEN">Open</option>
-                <option value="IN_PROGRESS">In progress</option>
-                <option value="RESOLVED">Resolved</option>
-                <option value="CLOSED">Closed</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Response</label>
-              <textarea rows={3} className="input" value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Your reply..." />
-            </div>
-            <button type="submit" disabled={saving} className="btn-primary w-full">
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </form>
-        )}
-      </Modal>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import RequestCard from "../../components/RequestCard";
 const STATUS_META = {
   AVAILABLE: { label: "Available for jobs", dot: "bg-circuit", text: "text-circuit" },
   OFFLINE: { label: "Offline", dot: "bg-slate", text: "text-slate" },
-  BUSY: { label: "On a job", dot: "bg-copper", text: "text-copper" },
 };
 
 export default function Dashboard() {
@@ -60,14 +59,14 @@ export default function Dashboard() {
 
         <button
           onClick={toggleAvailability}
-          disabled={toggling || availability === "BUSY"}
+          disabled={toggling}
           className={`flex items-center gap-2 rounded border px-4 py-2 text-sm font-medium transition-colors ${
             availability === "AVAILABLE" ? "border-circuit/40 bg-circuitlight text-circuitdark" : "border-ink/15 bg-white text-inkfaint"
           } disabled:opacity-60`}
         >
           <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
           {meta.label}
-          {availability !== "BUSY" && <span className="field-label ml-1">(tap to toggle)</span>}
+          <span className="field-label ml-1">(tap to toggle)</span>
         </button>
       </div>
 
