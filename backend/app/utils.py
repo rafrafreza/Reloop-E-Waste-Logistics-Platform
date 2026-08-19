@@ -143,3 +143,32 @@ def to_request_out(req: CollectionRequest) -> CollectionRequestOut:
         history=history,
         rating=rating,
     )
+
+import os
+import smtplib
+from email.message import EmailMessage
+
+def send_email_otp(to_email: str, otp: str):
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", 587))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("SMTP_FROM_EMAIL", "noreply@reloop.com")
+
+    if not all([smtp_host, smtp_user, smtp_password]):
+        print(f"[WARNING] SMTP credentials missing. OTP for {to_email} is {otp}")
+        return
+
+    msg = EmailMessage()
+    msg.set_content(f"Your password reset OTP is: {otp}\n\nThis OTP will expire in 15 minutes.\nIf you did not request this, please ignore this email.")
+    msg["Subject"] = "Reloop Password Reset OTP"
+    msg["From"] = from_email
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+    except Exception as e:
+        print(f"Failed to send email: {e}")

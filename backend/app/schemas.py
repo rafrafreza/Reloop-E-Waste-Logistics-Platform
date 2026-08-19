@@ -118,6 +118,15 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=6)
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+
 # ---------------------------------------------------------------------------
 # Addresses
 # ---------------------------------------------------------------------------
@@ -681,3 +690,7 @@ class PayoutOut(BaseModel):
 class PayoutAdminOut(PayoutOut):
     user_name: str | None = None
     user_role: str | None = None
+
+class VerifyResetOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str

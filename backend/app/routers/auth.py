@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from datetime import timedelta
 
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.database import get_db
-from app.models import CentreProfile, PartnerProfile, User
+from app.models import CentreProfile, PartnerProfile, User, PasswordReset, now_utc
 from app.schemas import (
     LoginRequest,
     PasswordChange,
@@ -13,8 +14,11 @@ from app.schemas import (
     RegisterRequest,
     TokenResponse,
     UserOut,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    VerifyResetOtpRequest,
 )
-from app.utils import notify
+from app.utils import notify, generate_otp, send_email_otp
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -203,4 +207,58 @@ def change_password(payload: PasswordChange, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     current_user.hashed_password = hash_password(payload.new_password)
     db.commit()
+    return {"ok": True}
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email.lower()).first()
+    if not user:
+        return {"ok": False}
+        
+    db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
+    
+    otp = generate_otp()
+    reset = PasswordReset(
+        user_id=user.id,
+        otp=otp,
+        expires_at=now_utc() + timedelta(minutes=15)
+    )
+    db.add(reset)
+    db.commit()
+    
+    background_tasks.add_task(send_email_otp, user.email, otp)
+    
+    return {"ok": True}
+
+
+def _verify_otp_record(db: Session, email: str, otp: str):
+    user = db.query(User).filter(User.email == email.lower()).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid request")
+        
+    reset = db.query(PasswordReset).filter(
+        PasswordReset.user_id == user.id,
+        PasswordReset.otp == otp,
+        PasswordReset.expires_at > now_utc()
+    ).first()
+    
+    if not reset:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        
+    return user, reset
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user, reset = _verify_otp_record(db, payload.email, payload.otp)
+        
+    user.hashed_password = hash_password(payload.new_password)
+    db.delete(reset)
+    db.commit()
+    
+    return {"ok": True}
+
+@router.post("/verify-reset-otp")
+def verify_reset_otp(payload: VerifyResetOtpRequest, db: Session = Depends(get_db)):
+    _verify_otp_record(db, payload.email, payload.otp)
     return {"ok": True}

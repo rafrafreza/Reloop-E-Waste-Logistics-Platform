@@ -10,6 +10,9 @@ export const authApi = {
   profile: () => client.get("/api/auth/profile"),
   updateProfile: (payload) => client.put("/api/auth/profile", payload),
   changePassword: (payload) => client.put("/api/auth/change-password", payload),
+  verifyResetOtp: (payload) => client.post("/api/auth/verify-reset-otp", payload),
+  forgotPassword: (payload) => client.post("/api/auth/forgot-password", payload),
+  resetPassword: (payload) => client.post("/api/auth/reset-password", payload),
 };
 
 // ---------------------------------------------------------------------------
