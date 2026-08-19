@@ -11,16 +11,17 @@ from app.utils import notify
 logger = logging.getLogger(__name__)
 
 
-def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
+def process_consumer_payout(db: Session, req: CollectionRequest) -> dict | None:
     """Called at OTP verification (PICKED_UP). Creates a Payout record and
     optionally fires a Cashfree transfer if payment_method == ONLINE."""
+    notif_payload = None
 
     if not req.quotation:
-        return
+        return notif_payload
 
     amount = req.quotation.total_amount
     if amount <= 0:
-        return
+        return notif_payload
 
     # Check for duplicate
     existing = db.query(Payout).filter(
@@ -28,7 +29,7 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
         Payout.payout_type == "CONSUMER",
     ).first()
     if existing:
-        return
+        return notif_payload
 
     payout = Payout(
         request_id=req.id,
@@ -42,9 +43,9 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
     if req.payment_method == "CASH":
         payout.status = "CASH_COLLECTED"
         db.add(payout)
-        notify(db, req.consumer_id, "Cash payment",
+        notif_payload = notify(db, req.consumer_id, "Cash payment",
                f"Rs.{amount:.2f} to be collected in cash from the pickup partner.")
-        return
+        return notif_payload
 
     # ONLINE -> Cashfree UPI transfer
     transfer_id = generate_transfer_id("RLC")
@@ -67,13 +68,13 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
             cf_status = result.get("status", "PENDING")
             payout.cashfree_status = cf_status
             payout.status = "SUCCESS" if cf_status == "SUCCESS" else "PROCESSING"
-            notify(db, req.consumer_id, "Payout initiated",
+            notif_payload = notify(db, req.consumer_id, "Payout initiated",
                    f"Rs.{amount:.2f} is being transferred to your UPI ({req.consumer_upi_id}).")
         else:
             payout.status = "FAILED"
             payout.cashfree_status = "ERROR"
             error_msg = result.get("message", "Unknown error")
-            notify(db, req.consumer_id, "Payout failed",
+            notif_payload = notify(db, req.consumer_id, "Payout failed",
                    f"Payout of Rs.{amount:.2f} failed: {error_msg}. Our team will retry.")
             logger.error("Consumer payout failed for request %s: %s", req.id, result)
 
@@ -84,6 +85,7 @@ def process_consumer_payout(db: Session, req: CollectionRequest) -> None:
         logger.exception("Cashfree API error for request %s", req.id)
 
     db.add(payout)
+    return notif_payload
 
 
 def process_partner_payout(db: Session, partner_user_id: int) -> dict:
@@ -114,6 +116,7 @@ def process_partner_payout(db: Session, partner_user_id: int) -> dict:
         status="PROCESSING",
     )
 
+    notif_payload = None
     try:
         user = db.query(User).get(partner_user_id)
         result = create_upi_transfer(
@@ -132,7 +135,7 @@ def process_partner_payout(db: Session, partner_user_id: int) -> dict:
             payout.cashfree_status = cf_status
             payout.status = "SUCCESS" if cf_status == "SUCCESS" else "PROCESSING"
             profile.total_earnings = 0.0
-            notify(db, partner_user_id, "Payout sent",
+            notif_payload = notify(db, partner_user_id, "Payout sent",
                    f"Rs.{amount:.2f} has been transferred to your UPI ({profile.upi_id}).")
         else:
             payout.status = "FAILED"
@@ -153,4 +156,7 @@ def process_partner_payout(db: Session, partner_user_id: int) -> dict:
 
     db.add(payout)
     db.commit()
+    if notif_payload:
+        from app.websocket import manager
+        manager.push_sync(notif_payload["user_id"], notif_payload)
     return {"ok": True, "transfer_id": transfer_id, "amount": amount}

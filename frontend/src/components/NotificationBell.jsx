@@ -1,25 +1,44 @@
 import { useEffect, useRef, useState } from "react";
 import { commonApi } from "../api/endpoints";
 import { timeAgo } from "../utils/date";
+import { useWebSocket } from "../context/WebSocketContext";
 
 export default function NotificationBell({ openUpward = false }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [count, setCount] = useState(0);
   const ref = useRef(null);
+  
+  const { latestNotification } = useWebSocket();
 
-  const refreshCount = () => {
-    commonApi
-      .unreadCount()
-      .then((res) => setCount(res.data.count))
-      .catch(() => {});
+  const refreshData = async () => {
+    try {
+      const [countRes, notifRes] = await Promise.all([
+        commonApi.unreadCount(),
+        commonApi.notifications(),
+      ]);
+      setCount(countRes.data.count);
+      setNotifications(notifRes.data);
+    } catch (err) {}
   };
 
   useEffect(() => {
-    refreshCount();
-    const interval = setInterval(refreshCount, 15000);
-    return () => clearInterval(interval);
+    refreshData();
   }, []);
+
+  const processedRef = useRef(new Set());
+
+  useEffect(() => {
+    if (latestNotification) {
+      if (latestNotification.type === "RECOVERY") {
+        refreshData();
+      } else if (!processedRef.current.has(latestNotification.id)) {
+        processedRef.current.add(latestNotification.id);
+        setNotifications((prev) => [latestNotification, ...prev]);
+        setCount((c) => c + 1);
+      }
+    }
+  }, [latestNotification]);
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -29,13 +48,8 @@ export default function NotificationBell({ openUpward = false }) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const toggle = async () => {
-    const next = !open;
-    setOpen(next);
-    if (next) {
-      const res = await commonApi.notifications();
-      setNotifications(res.data);
-    }
+  const toggle = () => {
+    setOpen(!open);
   };
 
   const markAll = async () => {

@@ -168,14 +168,16 @@ class ImageUploadOut(BaseModel):
     url: str
 
 
+from pydantic import BaseModel, Field
+
 class RequestItemCreate(BaseModel):
     category_id: int
     description: str | None = None
-    quantity: int = 1
-    estimated_weight_kg: float = 1.0
-    length_cm: float | None = None
-    breadth_cm: float | None = None
-    height_cm: float | None = None
+    quantity: int = Field(1, ge=1)
+    estimated_weight_kg: float = Field(1.0, gt=0)
+    length_cm: float | None = Field(None, gt=0)
+    breadth_cm: float | None = Field(None, gt=0)
+    height_cm: float | None = Field(None, gt=0)
     image_urls: list[str] = []
 
 
@@ -335,7 +337,7 @@ class CollectionRequestOut(BaseModel):
 
 class OtpVerifyItem(BaseModel):
     item_id: int
-    actual_weight_kg: float
+    actual_weight_kg: float = Field(..., gt=0)
 
 
 class OtpVerifyRequest(BaseModel):

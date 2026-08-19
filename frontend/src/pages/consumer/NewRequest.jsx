@@ -89,7 +89,7 @@ export default function NewRequest() {
   const removePhoto = (key, url) =>
     setItems((prev) => prev.map((i) => (i.key === key ? { ...i, images: i.images.filter((u) => u !== url) } : i)));
 
-  const estimatedTotal = items.reduce((sum, i) => sum + i.estimated_weight_kg * catRate(i.category_id), 0);
+  const estimatedTotal = items.reduce((sum, i) => sum + i.estimated_weight_kg * i.quantity * catRate(i.category_id), 0);
 
   const canProceedStep0 = addressId !== null;
   const canProceedStep1 = items.length > 0 && items.every((i) => i.estimated_weight_kg > 0 && i.quantity > 0);
@@ -194,19 +194,78 @@ export default function NewRequest() {
                   <div className="mt-2 grid grid-cols-2 gap-3">
                     <div>
                       <label className="label">Quantity</label>
-                      <input type="number" min={1} className="input" value={item.quantity} onChange={(e) => updateItem(item.key, "quantity", e.target.value)} />
+                      <input 
+                        type="number" 
+                        min={1} 
+                        step={1} 
+                        className="input" 
+                        value={item.quantity} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // only allow digits, no decimals or negatives
+                          if (/^\d*$/.test(val)) {
+                            updateItem(item.key, "quantity", val);
+                          }
+                        }} 
+                      />
                     </div>
                     <div>
                       <label className="label">Est. weight (kg)</label>
-                      <input type="number" min={0.1} step={0.1} className="input" value={item.estimated_weight_kg} onChange={(e) => updateItem(item.key, "estimated_weight_kg", e.target.value)} />
+                      <input 
+                        type="number" 
+                        min={0.1} 
+                        step={0.1} 
+                        className="input" 
+                        value={item.estimated_weight_kg} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // allow digits and decimal point, no negatives
+                          if (/^\d*\.?\d*$/.test(val)) {
+                            updateItem(item.key, "estimated_weight_kg", val);
+                          }
+                        }} 
+                      />
                     </div>
                   </div>
 
                   <p className="label mt-3 mb-1.5">Dimensions (cm, optional) — helps us pick the right vehicle</p>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" min={0} step={0.5} className="input" placeholder="Length" value={item.length_cm} onChange={(e) => updateItem(item.key, "length_cm", e.target.value)} />
-                    <input type="number" min={0} step={0.5} className="input" placeholder="Breadth" value={item.breadth_cm} onChange={(e) => updateItem(item.key, "breadth_cm", e.target.value)} />
-                    <input type="number" min={0} step={0.5} className="input" placeholder="Height" value={item.height_cm} onChange={(e) => updateItem(item.key, "height_cm", e.target.value)} />
+                    <input 
+                      type="number" 
+                      min={0.1} 
+                      step={0.5} 
+                      className="input" 
+                      placeholder="Length" 
+                      value={item.length_cm} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^\d*\.?\d*$/.test(val)) updateItem(item.key, "length_cm", val);
+                      }} 
+                    />
+                    <input 
+                      type="number" 
+                      min={0.1} 
+                      step={0.5} 
+                      className="input" 
+                      placeholder="Breadth" 
+                      value={item.breadth_cm} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^\d*\.?\d*$/.test(val)) updateItem(item.key, "breadth_cm", val);
+                      }} 
+                    />
+                    <input 
+                      type="number" 
+                      min={0.1} 
+                      step={0.5} 
+                      className="input" 
+                      placeholder="Height" 
+                      value={item.height_cm} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^\d*\.?\d*$/.test(val)) updateItem(item.key, "height_cm", val);
+                      }} 
+                    />
                   </div>
 
                   <p className="label mt-3 mb-1.5">Photos (optional)</p>

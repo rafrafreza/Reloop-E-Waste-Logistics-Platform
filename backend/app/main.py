@@ -41,7 +41,13 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
+    import asyncio
+    from app.websocket import manager
+    try:
+        manager.main_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        pass
     seed.run()
     # Log outbound IP on startup for Cashfree whitelist reference
     try:
@@ -76,6 +82,8 @@ app.include_router(uploads.router)
 app.include_router(chat.router)
 app.include_router(support.router)
 
+from app.routers import ws
+app.include_router(ws.router)
 
 @app.get("/api/health")
 def health():
