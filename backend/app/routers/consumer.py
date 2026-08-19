@@ -13,6 +13,7 @@ from app.models import (
     Rating,
     RequestItem,
     RequestItemImage,
+    Setting,
     User,
 )
 from app.schemas import AcceptQuoteRequest, AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut, ImpactStats, RatingCreate
@@ -42,6 +43,14 @@ def _get_owned_request(db: Session, request_id: int, consumer_id: int) -> Collec
     return req
 
 
+def _validate_service_city(db: Session, city: str):
+    setting = db.query(Setting).filter(Setting.key == "service_cities").first()
+    if setting and setting.value:
+        valid_cities = [c.strip().lower() for c in setting.value.split(",")]
+        if city.strip().lower() not in valid_cities:
+            raise HTTPException(status_code=400, detail="City is not serviceable")
+
+
 # ---------------------------------------------------------------------------
 # Addresses
 # ---------------------------------------------------------------------------
@@ -54,6 +63,7 @@ def list_addresses(db: Session = Depends(get_db), user: User = Depends(require_c
 
 @router.post("/addresses", response_model=AddressOut, status_code=201)
 def create_address(payload: AddressCreate, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
+    _validate_service_city(db, payload.city)
     if payload.is_default:
         db.query(Address).filter(Address.user_id == user.id).update({"is_default": False})
     addr = Address(user_id=user.id, **payload.model_dump())
@@ -65,6 +75,7 @@ def create_address(payload: AddressCreate, db: Session = Depends(get_db), user: 
 
 @router.put("/addresses/{address_id}", response_model=AddressOut)
 def update_address(address_id: int, payload: AddressCreate, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
+    _validate_service_city(db, payload.city)
     addr = db.get(Address, address_id)
     if not addr or addr.user_id != user.id:
         raise HTTPException(status_code=404, detail="Address not found")

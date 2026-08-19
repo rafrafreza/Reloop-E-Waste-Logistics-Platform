@@ -6,7 +6,6 @@ import { useWebSocket } from "../context/WebSocketContext";
 export default function NotificationBell({ openUpward = false }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [count, setCount] = useState(0);
   const [hasUnseen, setHasUnseen] = useState(false);
   const ref = useRef(null);
   
@@ -14,16 +13,12 @@ export default function NotificationBell({ openUpward = false }) {
 
   const refreshData = async () => {
     try {
-      const [countRes, notifRes] = await Promise.all([
-        commonApi.unreadCount(),
-        commonApi.notifications(),
-      ]);
-      const currentCount = countRes.data.count;
-      setCount(currentCount);
+      const notifRes = await commonApi.notifications();
       setNotifications(notifRes.data);
       
-      const seenCount = parseInt(localStorage.getItem("seenUnreadCount") || "0", 10);
-      setHasUnseen(currentCount > seenCount);
+      const lastOpened = parseInt(localStorage.getItem("notifLastOpened") || "0", 10);
+      const hasNew = notifRes.data.some(n => !n.is_read && new Date(n.created_at).getTime() > lastOpened);
+      setHasUnseen(hasNew);
     } catch (err) {}
   };
 
@@ -37,15 +32,13 @@ export default function NotificationBell({ openUpward = false }) {
     if (latestNotification) {
       if (latestNotification.type === "RECOVERY") {
         refreshData();
+        if (latestNotification.data && Array.isArray(latestNotification.data)) {
+          processedRef.current = new Set(latestNotification.data.map(n => n.id));
+        }
       } else if (!processedRef.current.has(latestNotification.id)) {
         processedRef.current.add(latestNotification.id);
         setNotifications((prev) => [latestNotification, ...prev]);
-        setCount((c) => {
-          const newCount = c + 1;
-          const seenCount = parseInt(localStorage.getItem("seenUnreadCount") || "0", 10);
-          setHasUnseen(newCount > seenCount);
-          return newCount;
-        });
+        setHasUnseen(true);
       }
     }
   }, [latestNotification]);
@@ -60,8 +53,8 @@ export default function NotificationBell({ openUpward = false }) {
 
   const toggle = () => {
     if (!open) {
-      localStorage.setItem("seenUnreadCount", count.toString());
       setHasUnseen(false);
+      localStorage.setItem("notifLastOpened", Date.now().toString());
     }
     setOpen(!open);
   };
@@ -69,9 +62,7 @@ export default function NotificationBell({ openUpward = false }) {
   const markAll = async () => {
     await commonApi.markAllRead();
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    setCount(0);
     setHasUnseen(false);
-    localStorage.setItem("seenUnreadCount", "0");
   };
 
   return (
