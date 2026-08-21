@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
-import { PageLoader, EmptyState, StatTile } from "../../components/ui/Primitives";
+import { PageLoader, EmptyState, StatTile, Banner } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
 
 const ACTIVE = ["PENDING", "QUOTED", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP", "AT_CENTRE"];
@@ -10,11 +10,15 @@ const ACTIVE = ["PENDING", "QUOTED", "ACCEPTED", "ASSIGNED", "OUT_FOR_PICKUP", "
 export default function Dashboard() {
   const { user } = useAuth();
   const [requests, setRequests] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    consumerApi.listRequests().then((res) => setRequests(res.data));
+    consumerApi.listRequests()
+      .then((res) => setRequests(res.data))
+      .catch(() => setError("We couldn't load your requests. Please try again."));
   }, []);
 
+  if (error) return <Banner>{error}</Banner>;
   if (!requests) return <PageLoader />;
 
   const active = requests.filter((r) => ACTIVE.includes(r.status));

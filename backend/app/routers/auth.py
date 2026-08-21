@@ -29,9 +29,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists")
 
-    existing_phone = db.query(User).filter(User.phone == payload.phone).first()
-    if existing_phone:
-        raise HTTPException(status_code=400, detail="An account with this phone number already exists")
+    if payload.phone:
+        existing_phone = db.query(User).filter(User.phone == payload.phone).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="An account with this phone number already exists")
 
     if payload.role in ("PARTNER", "CENTRE") and not payload.city:
         raise HTTPException(status_code=400, detail="City is required for this role")

@@ -14,7 +14,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     full_name: str = Field(min_length=2, max_length=150)
-    phone: str
+    phone: str | None = None
     role: str = "CONSUMER"
 
     # Partner-only
@@ -30,11 +30,11 @@ class RegisterRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def phone_must_be_ten_digits(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Phone number is required")
+        if v is None:
+            return v
         v = v.strip()
-        if not v.isdigit() or len(v) != 10:
-            raise ValueError("Phone number must be exactly 10 digits")
+        if not v or not v.isdigit():
+            raise ValueError("Phone number must contain digits")
         return v
 
     @field_validator("role")
@@ -371,6 +371,7 @@ class UpdateWeightsRequest(BaseModel):
 
 class OtpVerifyRequest(BaseModel):
     otp: str
+    items: list[OtpVerifyItem] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -403,6 +404,7 @@ class SupportTicketCreate(BaseModel):
 
 class SupportTicketAdminUpdate(BaseModel):
     status: str
+    admin_response: str | None = Field(default=None, min_length=1)
 
     @field_validator("status")
     @classmethod
@@ -435,6 +437,7 @@ class SupportTicketOut(BaseModel):
     request_id: int | None
     subject: str
     message: str
+    admin_response: str | None = None
     status: str
     created_at: datetime
     updated_at: datetime

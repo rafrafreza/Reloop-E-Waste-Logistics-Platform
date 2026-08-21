@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.schemas import AcceptQuoteRequest, AddressCreate, AddressOut, CollectionRequestCreate, CollectionRequestOut, ImpactStats, RatingCreate
 from app.utils import log_status, to_request_out, notify
+from app.services.consumer_requests import cancel_collection_request, create_collection_request, validate_service_city
 
 router = APIRouter(prefix="/api/consumer", tags=["consumer"])
 require_consumer = require_role("CONSUMER")
@@ -44,11 +45,7 @@ def _get_owned_request(db: Session, request_id: int, consumer_id: int) -> Collec
 
 
 def _validate_service_city(db: Session, city: str):
-    setting = db.query(Setting).filter(Setting.key == "service_cities").first()
-    if setting and setting.value:
-        valid_cities = [c.strip().lower() for c in setting.value.split(",")]
-        if city.strip().lower() not in valid_cities:
-            raise HTTPException(status_code=400, detail="City is not serviceable")
+    validate_service_city(db, city)
 
 
 # ---------------------------------------------------------------------------
@@ -106,79 +103,8 @@ def delete_address(address_id: int, db: Session = Depends(get_db), user: User = 
 
 @router.post("/requests", response_model=CollectionRequestOut, status_code=201)
 def create_request(payload: CollectionRequestCreate, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
-    addr = db.get(Address, payload.address_id)
-    if not addr or addr.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Address not found")
-
-    for item in payload.items:
-        cat = db.get(Category, item.category_id)
-        if not cat:
-            raise HTTPException(status_code=400, detail=f"Invalid category id {item.category_id}")
-
-    req = CollectionRequest(
-        consumer_id=user.id,
-        # Snapshot address fields so the request is never broken by address edits/deletes
-        pickup_street=addr.street,
-        pickup_city=addr.city,
-        pickup_state=addr.state,
-        pickup_pincode=addr.pincode,
-        pickup_lat=addr.lat,
-        pickup_lng=addr.lng,
-        status="PENDING",
-        request_type=payload.request_type,
-        notes=payload.notes,
-    )
-    db.add(req)
-    db.flush()
-
-    for item in payload.items:
-        request_item = RequestItem(
-            request_id=req.id,
-            category_id=item.category_id,
-            description=item.description,
-            quantity=item.quantity,
-            estimated_weight_kg=item.estimated_weight_kg,
-            length_cm=item.length_cm,
-            breadth_cm=item.breadth_cm,
-            height_cm=item.height_cm,
-        )
-        db.add(request_item)
-        db.flush()
-        for url in item.image_urls:
-            db.add(RequestItemImage(request_item_id=request_item.id, url=url))
-
-    log_status(db, req.id, "PENDING", "Request created by consumer")
-
-    # Notify all centres in the same city
-    from app.utils import notify
-    notif_payloads = []
-    total_items = sum(item.quantity for item in payload.items)
-    total_weight = sum(item.estimated_weight_kg * item.quantity for item in payload.items)
-    city_centres = db.query(CentreProfile).filter(CentreProfile.city == addr.city).all()
-    for centre in city_centres:
-        notif_payloads.append(
-            notify(db, centre.user_id, "New pickup request",
-                   f"New request #{req.id} in {addr.city} — {total_items} item(s), ~{total_weight:.1f} kg",
-                   link=f"/centre/requests/{req.id}"))
-
-    # Notify all available pickup partners in the same city
-    city_partners = db.query(PartnerProfile).filter(
-        PartnerProfile.city == addr.city,
-        PartnerProfile.status == "AVAILABLE",
-    ).all()
-    for partner in city_partners:
-        notif_payloads.append(
-            notify(db, partner.user_id, "New pickup request nearby",
-                   f"New request #{req.id} in {addr.city} — {total_items} item(s), ~{total_weight:.1f} kg",
-                   link=f"/partner/available"))
-
-    db.commit()
-    from app.websocket import manager
-    for n in notif_payloads:
-        if n:
-            manager.push_sync(n["user_id"], n)
-
-    return to_request_out(_get_owned_request(db, req.id, user.id))
+    request = create_collection_request(db, payload, user)
+    return to_request_out(_get_owned_request(db, request.id, user.id))
 
 
 @router.get("/requests", response_model=list[CollectionRequestOut])
@@ -262,22 +188,7 @@ def reject_quote(request_id: int, db: Session = Depends(get_db), user: User = De
 @router.post("/requests/{request_id}/cancel", response_model=CollectionRequestOut)
 def cancel_request(request_id: int, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
     req = _get_owned_request(db, request_id, user.id)
-    if req.status not in ("PENDING", "QUOTED"):
-        raise HTTPException(status_code=400, detail="Request can no longer be cancelled at this stage")
-
-    notif_payload = None
-    if req.centre_id:
-        notif_payload = notify(db, req.centre.user_id, "Request cancelled",
-               f"Request #{req.id} was cancelled by the consumer.")
-
-    req.status = "CANCELLED"
-    log_status(db, req.id, "CANCELLED", "Cancelled by consumer")
-    db.commit()
-
-    if notif_payload:
-        from app.websocket import manager
-        manager.push_sync(notif_payload["user_id"], notif_payload)
-
+    cancel_collection_request(db, req, user)
     return to_request_out(_get_owned_request(db, request_id, user.id))
 
 

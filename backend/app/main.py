@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.database import Base, engine
+from app.database import Base, engine, upgrade_schema
 from app.routers import admin, auth, centre, chat, common, consumer, partner, support, uploads
 
 app = FastAPI(
@@ -50,17 +50,7 @@ async def on_startup():
         pass
     # Ensure database tables exist
     Base.metadata.create_all(bind=engine)
-    
-    # Log outbound IP on startup for Cashfree whitelist reference
-    try:
-        import httpx
-        resp = httpx.get("https://api.ipify.org?format=json", timeout=10)
-        ip = resp.json().get("ip")
-        print(f"==========================================")
-        print(f"OUTBOUND IP: {ip}")
-        print(f"==========================================")
-    except Exception as e:
-        print(f"Could not determine outbound IP: {e}")
+    upgrade_schema()
 
 
 @app.get("/api/my-ip")

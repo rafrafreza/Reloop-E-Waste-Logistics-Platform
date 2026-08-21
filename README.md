@@ -214,6 +214,15 @@ pip install -r requirements.txt
 # Export your Gemini API Key before running the server
 export GOOGLE_API_KEY="your_actual_api_key_here"
 
+# Windows PowerShell equivalent:
+# $env:GOOGLE_API_KEY="your_actual_api_key_here"
+
+# Optional Gemini model override. The current default is gemini-3.5-flash-lite.
+# $env:GEMINI_MODEL="gemini-3.6-flash"
+
+# Required in production; local development uses a built-in fallback
+export SECRET_KEY="replace_with_a_long_random_secret"
+
 # (Optional) For Cashfree payouts:
 # export CASHFREE_CLIENT_ID="..."
 # export CASHFREE_CLIENT_SECRET="..."
