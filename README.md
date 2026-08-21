@@ -85,6 +85,8 @@ oversight).
 │   │   ├── cashfree.py         # Cashfree Payouts API client wrapper
 │   │   ├── cashfree_payout.py  # Consumer & partner UPI payout orchestration
 │   │   ├── knowledge_base.md   # RAG knowledge base for the AI chatbot
+│   │   ├── services/
+│   │   │   └── consumer_requests.py # Shared request create/update/cancel logic
 │   │   └── routers/
 │   │       ├── auth.py         # register/login/me/profile/change-password
 │   │       ├── common.py       # categories, notifications, public settings
@@ -102,7 +104,11 @@ oversight).
 │       ├── test_partner.py     # Partner endpoint tests
 │       ├── test_centre.py      # Centre endpoint tests
 │       ├── test_admin.py       # Admin endpoint tests
-│       └── test_common.py      # Common endpoint tests
+│       ├── test_common.py      # Common endpoint tests
+│       ├── test_chat.py        # Gemini tools, confirmations, and ownership tests
+│       ├── test_e2e_lifecycle.py # Full pickup lifecycle tests
+│       ├── test_support.py     # Support ticket tests
+│       └── test_uploads.py     # Upload endpoint tests
 └── frontend/
     ├── Dockerfile
     ├── package.json
@@ -170,7 +176,8 @@ oversight).
 | Variable | Required | Where | Description |
 |----------|----------|-------|-------------|
 | `GOOGLE_API_KEY` | Yes | Backend | Google Gemini API key (powers the AI chatbot) |
-| `SECRET_KEY` | Yes (prod) | Backend | JWT signing secret (auto-set in Docker & Render) |
+| `APP_ENV` | No | Backend | Set to `production` to enforce production secret requirements |
+| `SECRET_KEY` | Yes (prod) | Backend | Signs JWTs and Gemini action-confirmation tokens; Render generates it automatically |
 | `DATABASE_URL` | No | Backend | Defaults to `sqlite:///./ewaste.db`; set to a PostgreSQL URL for production |
 | `CASHFREE_CLIENT_ID` | No | Backend | Cashfree Payouts API client ID (payouts disabled without it) |
 | `CASHFREE_CLIENT_SECRET` | No | Backend | Cashfree Payouts API secret |
@@ -222,6 +229,9 @@ export GOOGLE_API_KEY="your_actual_api_key_here"
 
 # Required in production; local development uses a built-in fallback
 export SECRET_KEY="replace_with_a_long_random_secret"
+
+# Optional environment mode. Production refuses to start without SECRET_KEY.
+# $env:APP_ENV="production"
 
 # (Optional) For Cashfree payouts:
 # export CASHFREE_CLIENT_ID="..."
@@ -296,10 +306,12 @@ rm backend/ewaste.db
 
 It will be recreated and reseeded the next time you start the backend.
 
-Since this project has no migration tool (by design, to keep it simple),
-**pulling updated code that changes `models.py` always requires deleting
-`ewaste.db` and letting it reseed** — otherwise the old SQLite file won't
-have the new columns/tables and you'll see database errors.
+The application creates missing tables on startup and applies the current
+lightweight additive schema upgrade for existing SQLite and PostgreSQL
+databases. This covers nullable columns such as the request address reference.
+For larger production schema changes, use a proper migration tool such as
+Alembic rather than relying on the lightweight upgrader. Deleting
+`backend/ewaste.db` is still the quickest way to reset local demo data.
 
 ---
 
@@ -313,8 +325,10 @@ source venv/bin/activate
 pytest tests/ -v
 ```
 
-Six test modules cover auth, consumer, partner, centre, admin, and common
-endpoints using an isolated test database configured in `tests/conftest.py`.
+The backend suite contains 156 tests covering authentication, consumer,
+partner, centre, admin, common, support, uploads, payouts, chat tools, and
+end-to-end lifecycle behavior. Tests use an isolated SQLite database through
+`tests/conftest.py`.
 
 ### Frontend (linting)
 
@@ -349,6 +363,20 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   completion; ratings feed each partner/centre's public average.
 - **Support** ticket system, optionally linked to a specific request.
 
+- **AI-assisted account operations**: the authenticated consumer assistant can
+  list saved addresses, list orders, retrieve an individual order, list and
+  summarize support tickets, retrieve earnings and impact statistics, and
+  prepare order/support-ticket changes for confirmation.
+- **Order creation choices**: the assistant asks the consumer to select a
+  saved address and choose Standard or Priority pickup before preparing an
+  order preview. No order is created until the consumer confirms it.
+- **Paginated assistant results**: bulk address, order, and support-ticket
+  results are limited to three records. When more records exist, the assistant
+  asks before retrieving the next three.
+- **Weight-source transparency**: assistant order summaries use the pickup
+  partner's actual item weight when available and otherwise show the consumer's
+  estimate, with the source labeled accordingly.
+
 **Pickup Partner**
 - **Job marketplace**: browse unassigned accepted requests in your city and
   self-accept, in addition to being assigned by a centre.
@@ -358,6 +386,9 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   turn-by-turn directions to the pickup address.
 - **OTP verification** with actual weight entry per item — recalculates
   the final payout based on weighed quantities.
+- Partner acceptance changes availability to **Busy**; delivery returns the
+  partner to **Available**, and partners cannot go offline while an active job
+  is assigned.
 - **Earnings** page: total/paid/pending wallet balance, per-job history,
   and your rating — the pickup fee is snapshotted per job from an
   admin-configurable setting so later fee changes don't rewrite history.
@@ -399,7 +430,17 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
 - **AI Chatbot** (Gemini): a slide-out drawer accessible from every
   authenticated page, powered by `langchain-google-genai` with a custom
   `knowledge_base.md` system prompt. Answers questions about e-waste
-  disposal, category pricing, data wiping, and service availability.
+  disposal, category pricing, data wiping, and service availability. Its
+  consumer tools include address lookup, category lookup, order lookup and
+  creation, order update/cancel/remove, impact, earnings, support-ticket
+  creation/update/listing, and ticket summaries.
+- **Secure confirmations**: write operations create short-lived signed
+  confirmation tokens, enforce consumer ownership, require explicit user
+  confirmation, and reject token reuse.
+- **Conversation safeguards**: the chat endpoint validates message sizes and
+  history length, while the frontend sends a bounded recent history window.
+  User-facing replies are instructed and sanitized to avoid exposing tool
+  names or internal JSON fields.
 - **Dark / Light mode**: toggled via a sun/moon button in the header;
   preference persisted in `localStorage`.
 - **Responsive mobile navigation**: fixed sidebar on desktop, bottom bar
@@ -407,8 +448,9 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
 - **Search & Pagination**: all heavy data tables use a reusable
   `PaginatedList.jsx` component for scalable browsing and live search
   filtering.
-- **Real-time notifications**: polled every 15 seconds with an unread
-  count badge on the notification bell.
+- **Real-time notifications**: websocket notifications with an unread count
+  badge on the notification bell, with polling-based UI support retained for
+  compatibility.
 - **UI Aesthetics**: premium glassmorphism (backdrop blur) header, custom
   color palette with circuit/copper/amber tones, rubber-stamp animations
   for terminal statuses, and smooth slide-up drawer transitions.
@@ -437,8 +479,8 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   Partner earnings accumulate in a wallet and are paid out by admin from
   the Partner Balances page.
 - **Notifications** are created server-side at each state transition and
-  polled from the frontend every 15 seconds (no websockets — kept
-  deliberately simple for a local, single-instance deployment).
+  delivered through the notification manager. The WebSocket endpoint validates
+  the same JWT secret used by the REST API.
 - **Partner/Centre approval**: registering as a Pickup Partner or
   Segregation Centre creates the account with `is_active=False`. Logging in
   before approval returns a dedicated "application under review" screen
@@ -472,7 +514,9 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
   top navbar/hamburger, which is a separate, unrelated layout.
 - **AI Assistant**: a custom AI chatbot powered by `langchain-google-genai`
   uses a custom `knowledge_base.md` system prompt to help users with
-  e-waste queries. The chat interface is implemented as a sliding
+  e-waste queries and consumer account operations. Write operations are
+  confirmation-gated, scoped to the authenticated consumer, and signed with
+  the application secret. The chat interface is implemented as a sliding
   `AIChatDrawer.jsx` component accessible from the app header.
 - **Search & Pagination**: all heavy data tables (e.g., Active Requests,
   Users, Assignments) utilize a reusable `PaginatedList.jsx` component for
@@ -480,7 +524,66 @@ Beyond the core pickup pipeline, every role gets a full set of tools:
 
 ---
 
-## 11. Possible next versions
+## 11. AI Assistant enhancements and other related improvements and fixes
+
+### Gemini assistant
+
+- Added fourteen consumer-scoped tools for addresses, categories, orders,
+  impact, earnings, and support tickets.
+- Added order creation, update, cancellation, and removal previews with
+  explicit confirmation before database mutation.
+- Added support-ticket creation and follow-up previews with confirmation.
+- Added signed, expiring confirmation tokens and replay protection through
+  audit logs.
+- Added consumer ownership checks for orders, addresses, tickets, and linked
+  request IDs.
+- Added three-record paging for bulk addresses, orders, and support tickets.
+- Added bounded chat history handling to respect the endpoint's 20-message
+  validation limit.
+
+### Pickup and data accuracy
+
+- Partner-entered actual item weights are persisted during OTP verification.
+- Final material value and payout are recalculated from actual weights when
+  they are available.
+- Assistant order summaries expose both the original estimate and the selected
+  weight source (`actual` or `estimate`).
+- Partner availability now reflects assignment state and prevents going
+  offline during active jobs.
+- Shared consumer request service logic keeps create, update, and cancel
+  behavior consistent across REST and assistant flows.
+
+### Security and deployment
+
+- `SECRET_KEY` is shared by REST JWTs, WebSocket authentication, and assistant
+  confirmation tokens.
+- Production mode fails fast when `SECRET_KEY` is missing instead of silently
+  using a development secret.
+- Render sets `APP_ENV=production` and generates a persistent `SECRET_KEY`.
+- Docker Compose requires `SECRET_KEY` from the host environment.
+- Startup schema upgrades support additive changes on SQLite and PostgreSQL.
+- Startup no longer blocks on an external IP-discovery request.
+- Existing admin support responses, registration compatibility, referral
+  signups, and partner lifecycle behavior are covered by regression tests.
+
+### Validation
+
+- Backend: **156 tests passed**.
+- Frontend: production Vite build passed with 1011 modules transformed.
+- Static diagnostics: no errors reported in the changed backend or frontend
+  files.
+
+### Deployment checklist
+
+Before deploying, configure `SECRET_KEY`, `GOOGLE_API_KEY`, and `DATABASE_URL`.
+For Cashfree production payouts, also configure production credentials,
+webhook signature verification, domain whitelisting, and backend payment
+re-verification. Do not commit `.env` files, runtime uploads, API keys, or
+generated database files.
+
+---
+
+## 12. Possible next versions
 
 The codebase intentionally leaves room to grow without a rewrite:
 
