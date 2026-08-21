@@ -1,5 +1,20 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { chatApi } from "../api/endpoints";
+import { apiErrorMessage } from "../api/client";
+
+const MARKDOWN_COMPONENTS = {
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>,
+  li: ({ children }) => <li className="pl-1">{children}</li>,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  em: ({ children }) => <em>{children}</em>,
+  code: ({ children }) => <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
+  a: ({ children, href }) => <a className="text-circuit underline" href={href} target="_blank" rel="noreferrer">{children}</a>,
+};
 
 export default function AIChatDrawer({ open, onClose }) {
   const [messages, setMessages] = useState([
@@ -7,7 +22,11 @@ export default function AIChatDrawer({ open, onClose }) {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conversationId] = useState(() => crypto.randomUUID());
+  const [pendingAction, setPendingAction] = useState(null);
+  const [pendingPreview, setPendingPreview] = useState(null);
   const endRef = useRef(null);
+  const navigate = useNavigate();
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -26,17 +45,52 @@ export default function AIChatDrawer({ open, onClose }) {
     setLoading(true);
 
     try {
-      const res = await chatApi.sendMessage(userMsg);
+      const recentMessages = messages.slice(-10);
+      const res = await chatApi.sendMessage({
+        message: userMsg,
+        conversation_id: conversationId,
+        history: recentMessages.map((message) => ({
+          role: message.role === "user" ? "user" : "assistant",
+          content: message.content,
+        })),
+      });
       let replyText = res.data?.reply || "No response received";
       if (typeof replyText !== "string") {
-        try { replyText = JSON.stringify(replyText); } catch(e) { replyText = "Error parsing response"; }
+        try { replyText = JSON.stringify(replyText); } catch { replyText = "Error parsing response"; }
       }
       setMessages((prev) => [...prev, { role: "ai", content: replyText }]);
-    } catch (err) {
-      setMessages((prev) => [...prev, { 
-        role: "ai", 
-        content: "Oops! I couldn't connect to the backend. Please make sure you have exported GOOGLE_API_KEY in your terminal and the server is running." 
+      setPendingAction(res.data?.pending_action || null);
+      setPendingPreview(res.data?.pending_preview || null);
+    } catch (error) {
+      setMessages((prev) => [...prev, {
+        role: "ai",
+        content: apiErrorMessage(error, "The AI assistant is temporarily unavailable. Check the backend terminal for the Gemini error and try again.")
       }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingAction || loading) return;
+    setLoading(true);
+    try {
+      const recentMessages = messages.slice(-10);
+      const res = await chatApi.sendMessage({
+        message: "Confirm the prepared pickup order.",
+        conversation_id: conversationId,
+        history: recentMessages.map((message) => ({
+          role: message.role === "user" ? "user" : "assistant",
+          content: message.content,
+        })),
+        confirmed_action: pendingAction,
+      });
+      setMessages((prev) => [...prev, { role: "ai", content: res.data?.reply || "The requested action was completed." }]);
+      setPendingAction(null);
+      setPendingPreview(null);
+      if (res.data?.created_request_id) navigate(`/consumer/requests/${res.data.created_request_id}`);
+    } catch (error) {
+      setMessages((prev) => [...prev, { role: "ai", content: error.response?.data?.detail || "I couldn't place that pickup order. Please try again." }]);
     } finally {
       setLoading(false);
     }
@@ -87,12 +141,56 @@ export default function AIChatDrawer({ open, onClose }) {
                     : "rounded-tl-none bg-white text-ink border-ink/5"
                 }`}
               >
-                {msg.content}
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+                  {msg.content}
+                </ReactMarkdown>
               </div>
             </div>
           ))}
           <div ref={endRef} />
         </div>
+
+        {pendingAction && (
+          <div className="border-t border-ink/10 bg-paperdim px-4 py-3">
+            <p className="mb-2 text-xs font-semibold text-ink">
+              Confirm {pendingPreview?.operation || "this assistant action"}?
+            </p>
+            {pendingPreview && (
+              <div className="mb-3 text-xs text-inkfaint">
+                {(pendingPreview.address?.label || pendingPreview.address?.city) && (
+                  <p>
+                    {pendingPreview.address?.label && pendingPreview.address?.city
+                      ? `${pendingPreview.address.label} in ${pendingPreview.address.city}`
+                      : pendingPreview.address.label || pendingPreview.address.city}
+                  </p>
+                )}
+                {pendingPreview.items?.length > 0 && (
+                  <p>{pendingPreview.items.length} item type(s)</p>
+                )}
+                {pendingPreview.request_type && (
+                  <p>{pendingPreview.request_type.toLowerCase()} pickup</p>
+                )}
+                {pendingPreview.items?.map((item, index) => {
+                  const weight = item.weight_kg ?? item.actual_weight_kg ?? item.estimated_weight_kg;
+                  if (weight == null) return null;
+                  return (
+                    <p key={`${item.category_id}-${index}`}>
+                      Item {index + 1}: {weight} kg ({item.weight_type || (item.actual_weight_kg != null ? "actual" : "estimate")})
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button type="button" onClick={handleConfirm} disabled={loading} className="rounded-full bg-circuit px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                Confirm
+              </button>
+              <button type="button" onClick={() => { setPendingAction(null); setPendingPreview(null); }} disabled={loading} className="rounded-full border border-ink/20 px-4 py-2 text-xs font-semibold text-ink disabled:opacity-50">
+                Abort
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Input Area */}
         <div className="border-t border-ink/10 bg-white p-4">

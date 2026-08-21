@@ -19,6 +19,7 @@ from app.models import (
     RequestItem,
     Setting,
     SupportTicket,
+    SupportMessage,
     User,
 )
 from app.schemas import (
@@ -503,6 +504,8 @@ def respond_to_ticket(ticket_id: int, payload: SupportTicketAdminUpdate, db: Ses
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     ticket.status = payload.status
+    if payload.admin_response:
+        db.add(SupportMessage(ticket_id=ticket.id, sender_id=user.id, message=payload.admin_response))
     log_audit(db, user.id, "SUPPORT_TICKET_UPDATED", f"#{ticket.id} -> {payload.status}")
     notif_payload = notify(db, ticket.user_id, "Support ticket updated",
            f"Your ticket \"{ticket.subject}\" is now {payload.status.replace('_', ' ').title()}.",
@@ -512,7 +515,14 @@ def respond_to_ticket(ticket_id: int, payload: SupportTicketAdminUpdate, db: Ses
     if notif_payload:
         from app.websocket import manager
         manager.push_sync(notif_payload["user_id"], notif_payload)
-    return _ticket_out(ticket)
+    ticket = db.query(SupportTicket).options(
+        joinedload(SupportTicket.user),
+        joinedload(SupportTicket.messages).joinedload(SupportMessage.sender),
+    ).filter(SupportTicket.id == ticket_id).first()
+    response = _ticket_out(ticket)
+    if payload.admin_response:
+        response.admin_response = payload.admin_response
+    return response
 
 
 # ---------------------------------------------------------------------------

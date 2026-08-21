@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { consumerApi } from "../../api/endpoints";
-import { PageLoader, EmptyState } from "../../components/ui/Primitives";
+import { PageLoader, EmptyState, Banner } from "../../components/ui/Primitives";
 import RequestCard from "../../components/RequestCard";
 import PaginatedList from "../../components/PaginatedList";
 
@@ -21,6 +21,7 @@ const FILTERS = [
 
 export default function Requests() {
   const [requests, setRequests] = useState(null);
+  const [error, setError] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter") || "";
   const setFilter = (val) => {
@@ -31,7 +32,10 @@ export default function Requests() {
 
   useEffect(() => {
     setRequests(null);
-    consumerApi.listRequests(filter || undefined).then((res) => setRequests(res.data));
+    setError(null);
+    consumerApi.listRequests(filter || undefined)
+      .then((res) => setRequests(res.data))
+      .catch(() => setError("We couldn't load your requests. Please try again."));
   }, [filter]);
 
   return (
@@ -59,7 +63,9 @@ export default function Requests() {
       </div>
 
       <div className="mt-6">
-        {!requests ? (
+        {error ? (
+          <Banner>{error}</Banner>
+        ) : !requests ? (
           <PageLoader />
         ) : (
           <PaginatedList

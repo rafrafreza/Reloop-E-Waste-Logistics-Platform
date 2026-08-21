@@ -115,6 +115,7 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
     db.add(Assignment(request_id=req.id, partner_id=user.id, pickup_fee=round(payout, 2)))
     req.status = "ASSIGNED"
     req.pickup_otp = otp
+    partner_profile.status = "BUSY"
     
     log_status(db, req.id, "ASSIGNED", f"Accepted by pickup partner {user.full_name}")
     notif_payload = notify(db, req.consumer_id, "Pickup partner assigned",
@@ -205,6 +206,30 @@ def verify_otp(request_id: int, payload: OtpVerifyRequest, db: Session = Depends
     if payload.otp != req.pickup_otp:
         raise HTTPException(status_code=400, detail="Incorrect OTP")
 
+    if payload.items:
+        items_by_id = {item.id: item for item in req.items}
+        for entry in payload.items:
+            item = items_by_id.get(entry.item_id)
+            if not item:
+                raise HTTPException(status_code=400, detail=f"Item {entry.item_id} does not belong to this request")
+            item.actual_weight_kg = entry.actual_weight_kg
+        if req.quotation:
+            actual_material_value = sum(
+                (item.actual_weight_kg if item.actual_weight_kg is not None else item.estimated_weight_kg)
+                * item.quantity
+                * (item.category.base_price_per_kg if item.category else 0)
+                for item in req.items
+            )
+            req.quotation.final_material_value = round(actual_material_value, 2)
+            req.quotation.material_value = round(actual_material_value, 2)
+            req.quotation.final_total_amount = max(0.0, round(
+                actual_material_value
+                - req.quotation.handling_charge
+                - req.quotation.pickup_charge
+                - req.quotation.priority_surcharge,
+                2,
+            ))
+
     req.status = "PICKED_UP"
     log_status(db, req.id, "PICKED_UP", "OTP verified, items collected from consumer")
     notif_payload = notify(db, req.consumer_id, "Pickup completed",
@@ -238,9 +263,10 @@ def deliver_to_centre(request_id: int, db: Session = Depends(get_db), user: User
         ))
 
     req.status = "AT_CENTRE"
-    log_status(db, req.id, "AT_CENTRE", "Delivered to segregation centre")
-
     partner_profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
+    if partner_profile:
+        partner_profile.status = "AVAILABLE"
+    log_status(db, req.id, "AT_CENTRE", "Delivered to segregation centre")
 
     notif_payload = None
     if req.centre:
@@ -282,6 +308,11 @@ def set_availability(available: bool, db: Session = Depends(get_db), user: User 
     profile = db.query(PartnerProfile).filter(PartnerProfile.user_id == user.id).first()
     if not profile:
         raise HTTPException(status_code=400, detail="No partner profile associated with this account")
+    if not available and db.query(CollectionRequest).join(Assignment).filter(
+        Assignment.partner_id == user.id,
+        CollectionRequest.status.in_(["ASSIGNED", "OUT_FOR_PICKUP", "PICKED_UP"]),
+    ).first():
+        raise HTTPException(status_code=400, detail="Cannot go offline while you have an active job")
     profile.status = "AVAILABLE" if available else "OFFLINE"
     db.commit()
     return {"status": profile.status}

@@ -135,6 +135,9 @@ class CollectionRequest(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     consumer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     centre_id: Mapped[int | None] = mapped_column(ForeignKey("centre_profiles.id"), nullable=True)
+    # Retained for compatibility with older local SQLite databases. The
+    # address snapshot below remains the source of truth for existing requests.
+    address_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Snapshot of the consumer's address at request creation time.
     # Stored inline so the consumer can freely delete/edit their address book

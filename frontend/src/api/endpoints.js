@@ -32,7 +32,7 @@ export const commonApi = {
 // AI Chat
 // ---------------------------------------------------------------------------
 export const chatApi = {
-  sendMessage: (message) => client.post("/api/chat", { message }),
+  sendMessage: (payload) => client.post("/api/chat", payload),
 };
 
 // ---------------------------------------------------------------------------

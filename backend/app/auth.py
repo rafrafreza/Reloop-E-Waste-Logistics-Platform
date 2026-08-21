@@ -4,6 +4,8 @@ and FastAPI dependencies for pulling the current user out of a request.
 from datetime import datetime, timedelta, timezone
 import os
 
+from dotenv import load_dotenv
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -13,7 +15,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 
+# Load .env when this module is imported directly (for example by tests).
+load_dotenv()
+APP_ENV = os.getenv("APP_ENV", "development").lower()
 SECRET_KEY = os.getenv("SECRET_KEY")
+if APP_ENV in {"production", "prod"} and not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY must be set in production.")
+SECRET_KEY = SECRET_KEY or "reloop-local-development-secret-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days, convenient for demos
 

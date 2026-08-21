@@ -2,14 +2,16 @@ import asyncio
 import logging
 import os
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from dotenv import load_dotenv
 from jose import jwt
 
+from app.auth import SECRET_KEY
 from app.websocket import manager
 
 router = APIRouter(tags=["websockets"])
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+load_dotenv()
 ALGORITHM = "HS256"
 
 ALLOWED_ORIGINS = {"http://localhost:5173", "http://127.0.0.1:5173"}
