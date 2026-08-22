@@ -9,9 +9,6 @@ services:
     rootDir: backend
     plan: free
     envVars:
-      - key: APP_ENV
-        value: production
-
       - key: SECRET_KEY
         generateValue: true
 

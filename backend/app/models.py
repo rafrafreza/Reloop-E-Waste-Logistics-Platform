@@ -231,6 +231,10 @@ class Assignment(Base):
     request_id: Mapped[int] = mapped_column(ForeignKey("collection_requests.id"), unique=True, nullable=False)
     partner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     assigned_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    # Amount owed to the partner for this pickup (snapshot at assignment time)
+    payout_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    # PENDING | PAID (settled to partner wallet)
+    payout_status: Mapped[str] = mapped_column(String(20), default="PENDING")
     # Snapshot of the partner_pickup_fee setting at assignment time, so
     # later fee changes don't retroactively alter historical earnings.
     pickup_fee: Mapped[float] = mapped_column(Float, default=0.0)

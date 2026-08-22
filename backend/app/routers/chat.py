@@ -14,7 +14,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.auth import SECRET_KEY, require_role
+from app.auth import SECRET_KEY, get_current_user
 from app.database import get_db
 from app.models import AuditLog, Category, CollectionRequest, Payout, SupportMessage, SupportTicket, User
 from app.routers.consumer import _get_owned_request, _request_query
@@ -23,7 +23,6 @@ from app.services.consumer_requests import cancel_collection_request, create_col
 from app.utils import log_audit
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-require_consumer = require_role("CONSUMER")
 logger = logging.getLogger(__name__)
 
 
@@ -79,10 +78,30 @@ KB_PATH = os.path.join(os.path.dirname(__file__), "..", "knowledge_base.md")
 with open(KB_PATH, "r", encoding="utf-8") as knowledge_file:
     knowledge_base = knowledge_file.read()
 
-SYSTEM_PROMPT = f"""
+def get_system_prompt(user_role: str) -> str:
+    if user_role == "CONSUMER":
+        role_instructions = (
+            "The current user role is CONSUMER.\n"
+            "Consumers have access to tools to view and manage their saved addresses, create/update/cancel pickup orders, check recycling impact, view earnings, and manage support tickets.\n"
+            "You can assist consumers with both general platform information and their personal pickup orders, addresses, earnings, impact, and support tickets."
+        )
+    else:
+        role_instructions = (
+            f"The current user category is {user_role}.\n"
+            "This user category (non-consumer: partner, segregation centre, admin) DOES NOT HAVE access to personal pickup order or address management tools.\n"
+            "You MUST ONLY display and provide generic information about the Reloop application and platform (such as company mission, operating cities, e-waste collection process, base pricing estimates, data privacy guidelines, and FAQs).\n"
+            "DO NOT offer, list, or claim features related to scheduling or managing pickup orders, adding or viewing saved addresses, or modifying orders. "
+            "If asked what you can do or how you can help, display ONLY generic information about the Reloop application suitable for non-consumer users."
+        )
+
+    return f"""
 You are the official Reloop E-waste Platform AI Assistant.
 Use the knowledge base for general questions and tools for user-specific information.
 Never invent order IDs, addresses, categories, prices, statuses, or availability.
+
+--- USER CATEGORY GUIDANCE ---
+{role_instructions}
+
 Never create an order without explicit user confirmation. The create_pickup_order tool
 only prepares a preview; the server creates the order after a separate confirmation.
 Before creating an order, ask the user to choose one of their saved addresses and either
@@ -104,6 +123,7 @@ Do not reveal private data such as passwords, tokens, UPI IDs, or pickup OTPs.
 --- KNOWLEDGE BASE ---
 {knowledge_base}
 """
+
 
 
 def _secret() -> bytes:
@@ -344,8 +364,10 @@ def _user_reply(response: Any) -> str:
 
 
 @router.post("")
-def chat_with_bot(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(require_consumer)):
+def chat_with_bot(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if req.confirmed_action:
+        if user.role != "CONSUMER":
+            raise HTTPException(status_code=403, detail="Only consumers can confirm assistant actions.")
         action = req.confirmed_action
         allowed_actions = {"create_pickup_order", "update_order", "cancel_order", "remove_order", "create_support_ticket", "update_support_ticket"}
         if action.name not in allowed_actions or not _verify_action_token(user.id, action.arguments, action.confirmation_token):
@@ -393,9 +415,11 @@ def chat_with_bot(req: ChatRequest, db: Session = Depends(get_db), user: User = 
         raise HTTPException(status_code=500, detail="GOOGLE_API_KEY is not set in the environment.")
     model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
     try:
-        tools = _make_tools(db, user)
-        llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key, temperature=0.2).bind_tools(tools)
-        messages = [SystemMessage(content=SYSTEM_PROMPT)]
+        tools = _make_tools(db, user) if user.role == "CONSUMER" else []
+        llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key, temperature=0.2)
+        if tools:
+            llm = llm.bind_tools(tools)
+        messages = [SystemMessage(content=get_system_prompt(user.role))]
         for history_message in req.history[-20:]:
             messages.append(HumanMessage(content=history_message.content) if history_message.role == "user" else AIMessage(content=history_message.content))
         messages.append(HumanMessage(content=req.message))

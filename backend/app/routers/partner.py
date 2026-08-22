@@ -104,15 +104,23 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
     if req.pickup_city != partner_profile.city:
         raise HTTPException(status_code=400, detail="This request is outside your service city")
         
-    from app.utils import generate_otp, get_setting_float
+    from app.utils import generate_otp
     otp = generate_otp()
     
     # Partner payout = Pickup charge (from quote) + Priority surcharge (from quote)
-    payout = req.quotation.pickup_charge
-    if req.request_type == "PRIORITY":
-        payout += req.quotation.priority_surcharge
+    payout = 0.0
+    if req.quotation:
+        payout = req.quotation.pickup_charge or 0.0
+        if req.request_type == "PRIORITY":
+            payout += (req.quotation.priority_surcharge or 0.0)
     
-    db.add(Assignment(request_id=req.id, partner_id=user.id, pickup_fee=round(payout, 2)))
+    if req.assignment:
+        req.assignment.partner_id = user.id
+        req.assignment.pickup_fee = round(payout, 2)
+        req.assignment.assigned_at = datetime.now(timezone.utc)
+    else:
+        db.add(Assignment(request_id=req.id, partner_id=user.id, pickup_fee=round(payout, 2)))
+
     req.status = "ASSIGNED"
     req.pickup_otp = otp
     partner_profile.status = "BUSY"
@@ -125,7 +133,10 @@ def accept_request(request_id: int, db: Session = Depends(get_db), user: User = 
     db.commit()
     if notif_payload:
         from app.websocket import manager
-        manager.push_sync(notif_payload["user_id"], notif_payload)
+        try:
+            manager.push_sync(notif_payload["user_id"], notif_payload)
+        except Exception:
+            pass
     return to_request_out(_request_query(db).filter(CollectionRequest.id == request_id).first())
 
 
