@@ -176,7 +176,6 @@ oversight).
 | Variable | Required | Where | Description |
 |----------|----------|-------|-------------|
 | `GOOGLE_API_KEY` | Yes | Backend | Google Gemini API key (powers the AI chatbot) |
-| `APP_ENV` | No | Backend | Set to `production` to enforce production secret requirements |
 | `SECRET_KEY` | Yes (prod) | Backend | Signs JWTs and Gemini action-confirmation tokens; Render generates it automatically |
 | `DATABASE_URL` | No | Backend | Defaults to `sqlite:///./ewaste.db`; set to a PostgreSQL URL for production |
 | `CASHFREE_CLIENT_ID` | No | Backend | Cashfree Payouts API client ID (payouts disabled without it) |
@@ -229,9 +228,6 @@ export GOOGLE_API_KEY="your_actual_api_key_here"
 
 # Required in production; local development uses a built-in fallback
 export SECRET_KEY="replace_with_a_long_random_secret"
-
-# Optional environment mode. Production refuses to start without SECRET_KEY.
-# $env:APP_ENV="production"
 
 # (Optional) For Cashfree payouts:
 # export CASHFREE_CLIENT_ID="..."

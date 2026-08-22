@@ -16,7 +16,6 @@ services:
     environment:
       # Use SQLite for now. Can easily change to MySQL URL later!
       - DATABASE_URL=sqlite:///./ewaste.db
-      - APP_ENV=development
       - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY before starting Docker Compose}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     restart: always

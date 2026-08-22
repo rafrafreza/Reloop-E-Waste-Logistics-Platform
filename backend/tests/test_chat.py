@@ -5,7 +5,19 @@ import pytest
 from pydantic import ValidationError
 
 from app.models import CollectionRequest, RequestItem, SupportTicket, User
-from app.routers.chat import _make_tools
+from app.routers.chat import _make_tools, get_system_prompt
+
+
+def test_system_prompt_restricts_non_consumers():
+    for role in ["PARTNER", "CENTRE", "ADMIN"]:
+        prompt = get_system_prompt(role)
+        assert "DOES NOT HAVE access to personal pickup order or address management tools" in prompt
+        assert "ONLY display and provide generic information" in prompt
+
+
+def test_system_prompt_allows_consumer_tools():
+    prompt = get_system_prompt("CONSUMER")
+    assert "Consumers have access to tools to view and manage their saved addresses" in prompt
 
 
 def test_chat_requires_authentication(client):
@@ -18,6 +30,76 @@ def test_chat_requires_google_key(client, consumer_headers, monkeypatch):
     response = client.post("/api/chat", json={"message": "What is e-waste?"}, headers=consumer_headers)
     assert response.status_code == 500
     assert "GOOGLE_API_KEY" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("role_fixture", ["admin_headers", "partner_headers", "centre_headers"])
+def test_non_consumers_can_use_general_chat_without_consumer_tools(client, request, role_fixture, monkeypatch):
+    class FakeChatGoogleGenerativeAI:
+        instances = []
+
+        def __init__(self, **kwargs):
+            self.bound_tool_names = None
+            self.__class__.instances.append(self)
+
+        def bind_tools(self, tools):
+            self.bound_tool_names = [item.name for item in tools]
+            return self
+
+        def invoke(self, messages):
+            return type("FakeResponse", (), {"content": "General answer", "tool_calls": []})()
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.setattr("app.routers.chat.ChatGoogleGenerativeAI", FakeChatGoogleGenerativeAI)
+    response = client.post(
+        "/api/chat",
+        json={"message": "What is e-waste?"},
+        headers=request.getfixturevalue(role_fixture),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reply"] == "General answer"
+    assert FakeChatGoogleGenerativeAI.instances[-1].bound_tool_names is None
+
+
+def test_consumer_chat_binds_consumer_tools(client, consumer_headers, monkeypatch):
+    class FakeChatGoogleGenerativeAI:
+        bound_tool_names = None
+
+        def __init__(self, **kwargs):
+            pass
+
+        def bind_tools(self, tools):
+            self.__class__.bound_tool_names = [item.name for item in tools]
+            return self
+
+        def invoke(self, messages):
+            return type("FakeResponse", (), {"content": "Consumer answer", "tool_calls": []})()
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.setattr("app.routers.chat.ChatGoogleGenerativeAI", FakeChatGoogleGenerativeAI)
+    response = client.post("/api/chat", json={"message": "Show my orders"}, headers=consumer_headers)
+
+    assert response.status_code == 200
+    assert "list_my_orders" in FakeChatGoogleGenerativeAI.bound_tool_names
+
+
+@pytest.mark.parametrize("role_fixture", ["admin_headers", "partner_headers", "centre_headers"])
+def test_non_consumers_cannot_confirm_chat_actions(client, request, role_fixture):
+    response = client.post(
+        "/api/chat",
+        json={
+            "message": "Confirm",
+            "confirmed_action": {
+                "name": "create_pickup_order",
+                "arguments": {},
+                "confirmation_token": "unused",
+            },
+        },
+        headers=request.getfixturevalue(role_fixture),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Only consumers can confirm assistant actions."
 
 
 def test_order_tools_are_scoped_to_current_consumer(db_session, consumer_headers, consumer_address, category):

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { chatApi } from "../api/endpoints";
 import { apiErrorMessage } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 const MARKDOWN_COMPONENTS = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -17,8 +18,15 @@ const MARKDOWN_COMPONENTS = {
 };
 
 export default function AIChatDrawer({ open, onClose }) {
-  const [messages, setMessages] = useState([
-    { role: "ai", content: "Hi there! I'm the Reloop AI assistant. I can help you estimate item values, guide you through data wiping, or check the status of your pickups. How can I help today?" }
+  const { user } = useAuth();
+  const isConsumer = user?.role === "CONSUMER";
+  const [messages, setMessages] = useState(() => [
+    {
+      role: "ai",
+      content: isConsumer
+        ? "Hi there! I'm the Reloop AI assistant. I can help you estimate item values, guide you through data wiping, or manage your pickups and addresses. How can I help today?"
+        : "Hi there! I'm the Reloop AI assistant. I can answer general questions about Reloop's platform, recycling processes, pricing estimates, and policies. How can I help today?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
