@@ -60,13 +60,13 @@ async def on_startup():
 
     db = SessionLocal()
     try:
-        # We only create a default admin if there are NO admins in the entire system.
-        admin_count = db.query(User).filter(User.role == "ADMIN").count()
-        if admin_count == 0:
-            admin_email = os.getenv("ADMIN_EMAIL", "admin@reloop.com")
-            admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
-            
-            print(f"Provisioning initial admin account: {admin_email}")
+        admin_email = os.getenv("ADMIN_EMAIL", "admin@reloop.com")
+        admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+        
+        # Ensure the specific admin requested in environment variables exists
+        admin = db.query(User).filter(User.email == admin_email.lower()).first()
+        if not admin:
+            print(f"Provisioning requested admin account: {admin_email}")
             default_admin = User(
                 email=admin_email.lower(),
                 hashed_password=hash_password(admin_pass),
@@ -75,6 +75,10 @@ async def on_startup():
                 is_active=True
             )
             db.add(default_admin)
+            db.commit()
+        elif admin.role != "ADMIN":
+            print(f"Upgrading existing user {admin_email} to ADMIN")
+            admin.role = "ADMIN"
             db.commit()
     except Exception as e:
         print(f"Failed to seed admin: {e}")
