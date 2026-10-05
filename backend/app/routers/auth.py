@@ -25,6 +25,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+    if payload.role == "ADMIN":
+        raise HTTPException(status_code=403, detail="Cannot register admin accounts via this endpoint")
+
     existing = db.query(User).filter(User.email == payload.email.lower()).first()
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists")

@@ -52,6 +52,34 @@ async def on_startup():
     Base.metadata.create_all(bind=engine)
     upgrade_schema()
 
+    # Automatically create the first Admin account securely
+    from app.database import SessionLocal
+    from app.models import User
+    from app.auth import hash_password
+    import os
+
+    db = SessionLocal()
+    try:
+        # We only create a default admin if there are NO admins in the entire system.
+        admin_count = db.query(User).filter(User.role == "ADMIN").count()
+        if admin_count == 0:
+            admin_email = os.getenv("ADMIN_EMAIL", "admin@reloop.com")
+            admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+            
+            print(f"Provisioning initial admin account: {admin_email}")
+            default_admin = User(
+                email=admin_email.lower(),
+                hashed_password=hash_password(admin_pass),
+                full_name="System Admin",
+                role="ADMIN",
+                is_active=True
+            )
+            db.add(default_admin)
+            db.commit()
+    except Exception as e:
+        print(f"Failed to seed admin: {e}")
+    finally:
+        db.close()
 
 @app.get("/api/my-ip")
 def get_my_ip():
