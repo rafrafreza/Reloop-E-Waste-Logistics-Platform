@@ -370,16 +370,6 @@ frontend/
 
 ---
 
-## 👥 Team
-
-Reloop was built by a four-person team:
-
-- **Rafraf Reza** ([@rafrafreza](https://github.com/rafrafreza)): Reloop MVP v1, landing page, item photos & dimensions, impact dashboard, recycling certificates, reorder & support, financial transparency overhaul (priority pickups, centre finance ledger, partner item tracking), secure admin provisioning, and production deployment
-- **Samar Kamboj**: backend foundation, initial AI chatbot, maps, Docker/Render setup, Cashfree payouts, WebSockets, and test suite
-- **Anurag Dubey**: frontend foundation, dashboards and analytics charts, theming and responsive UI, validation flows
-- **Gokul Vasudevan**: agentic AI assistant (role-aware tools and secure confirmations), payout hardening, and payout tests
-
----
 
 <div align="center">
 
