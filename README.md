@@ -16,7 +16,7 @@ Includes a tool-calling Gemini assistant, real-time UPI payouts, live maps, and 
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](#-quick-start)
 [![Tests](https://img.shields.io/badge/tests-160%2B_pytest-brightgreen?logo=pytest&logoColor=white)](#-testing)
 
-### 🌐 [Live Demo → ewaste-frontend-lc20.onrender.com](https://ewaste-frontend-lc20.onrender.com/)
+### 🌐 [Live Demo → Click here to experience the Platform](https://ewaste-frontend-lc20.onrender.com/)
 
 <sub>Hosted on Render's free tier, so the first load can take up to a minute while the server wakes up.</sub>
 
