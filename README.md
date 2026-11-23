@@ -1,595 +1,388 @@
-# Reloop — E-Waste Pickup & Recycling Logistics Platform
+<div align="center">
 
-A full-stack e-waste logistics marketplace: **consumers** schedule pickups,
-**segregation centres** quote and process them, **pickup partners** handle
-the physical handover, and an **admin** runs the whole operation — with
-real-time UPI payouts (Cashfree), an AI chatbot (Gemini), interactive maps
-(Leaflet), ratings, revenue analytics, environmental impact tracking,
-dark mode, and support ticketing on top of the core pickup pipeline.
+# ♻️ Reloop
 
-Built with **React 19 (Vite 8) + FastAPI + SQLite/PostgreSQL + Cashfree Payouts**.
+### Full-stack e-waste logistics platform with an LLM agent that takes real actions safely
 
----
+**Consumers schedule pickups · Centres quote & process · Partners collect · Admins run the platform**<br/>
+Includes a tool-calling Gemini assistant, real-time UPI payouts, live maps, and WebSocket notifications.
 
-## 1. What it does
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](#-tech-stack)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](#-tech-stack)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](#-tech-stack)
+[![LangChain](https://img.shields.io/badge/LangChain-Tool_Calling-1C3C3C?logo=langchain&logoColor=white)](#-the-ai-agent)
+[![Gemini](https://img.shields.io/badge/Google-Gemini-8E75B2?logo=googlegemini&logoColor=white)](#-the-ai-agent)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-SQLAlchemy_2.0-4169E1?logo=postgresql&logoColor=white)](#-tech-stack)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](#-quick-start)
+[![Tests](https://img.shields.io/badge/tests-160%2B_pytest-brightgreen?logo=pytest&logoColor=white)](#-testing)
 
-A request moves through a single, fully-tracked pipeline:
+[The AI Agent](#-the-ai-agent) · [Architecture](#-architecture) · [Features](#-features-by-role) · [Engineering Decisions](#-engineering-decisions) · [Quick Start](#-quick-start)
 
-```
-PENDING → QUOTED → ACCEPTED → ASSIGNED → OUT_FOR_PICKUP → PICKED_UP → AT_CENTRE → COMPLETED
-                 ↘ REJECTED                                                    (or CANCELLED
-                                                                       earlier in the flow)
-```
-
-1. **Consumer** picks an address (with an interactive map picker), lists
-   items by category (with optional dimensions and photos), and submits a
-   request.
-2. **Centre** (matched by city) reviews the request and returns a quotation
-   (material value − handling charge − pickup charge), which also snapshots
-   a platform commission for revenue reporting.
-3. **Consumer** accepts or rejects the quotation. On acceptance, they choose
-   a payment method — **UPI** (with automatic Cashfree payout) or **Cash**.
-4. **Centre** assigns an available **pickup partner**, or the **partner
-   self-accepts** from a job marketplace of unassigned requests in their
-   city. A one-time handover OTP is generated.
-5. **Partner** starts the pickup, verifies the OTP at the doorstep, and
-   records the actual weight of each item. An **automatic UPI payout** to
-   the consumer is triggered via Cashfree (if UPI was selected).
-6. **Partner** delivers to the centre — items are automatically logged into
-   the centre's warehouse inventory.
-7. **Centre** marks the request complete — the partner's pickup fee is
-   credited to their wallet and the consumer earns reward points.
-8. **Centre** later dispatches warehouse items to a named licensed recycler
-   and marks them recycled, closing the chain of custody.
-9. **Consumer** can rate the partner and centre, and download a printable
-   recycling certificate.
-
-Every transition is notification-driven and recorded in a per-request status
-timeline. There's also a full **Admin console** (users, category pricing
-and CO₂ estimates, platform settings, revenue analytics, Cashfree payouts,
-partner wallet balances, audit log, support inbox, and cross-platform
-oversight).
+</div>
 
 ---
 
-## 2. Tech stack
+## 📌 Overview
 
-| Layer     | Tech                                                         |
-|-----------|--------------------------------------------------------------|
-| Frontend  | React 19.2 (Vite 8), React Router 7, Tailwind CSS 3.4, Axios, Recharts, Leaflet + react-leaflet (maps), Lucide React (icons), date-fns |
-| Backend   | FastAPI 0.115, SQLAlchemy 2.0, Pydantic v2, PyJWT + python-jose, passlib (bcrypt), LangChain + langchain-google-genai (AI chatbot), Cashfree Payouts API |
-| Database  | SQLite (local dev, zero setup) · PostgreSQL on Render (production) |
-| Auth      | JWT bearer tokens, role-gated endpoints (Consumer / Partner / Centre / Admin) |
-| Payments  | Cashfree Payouts API (UPI transfers for consumer refunds & partner earnings) |
-| Maps      | Leaflet + OpenStreetMap tiles, Nominatim geocoding, Google Maps navigation deep-links |
-| Testing   | pytest (backend), oxlint (frontend linting) |
+India produces millions of tonnes of e-waste a year, and most of it goes through informal channels with no price transparency, no traceability, and no proof it was recycled responsibly.
+
+**Reloop** connects the whole chain on one platform. A household books a pickup, a segregation centre in their city quotes a price, a pickup partner collects it after OTP verification, the consumer gets paid over UPI, and every item is tracked into the warehouse and out to a licensed recycler.
+
+This is a working product, not a CRUD demo:
+
+| | |
+|---|---|
+| 🤖 **Agentic AI assistant** | Gemini + LangChain with **14 tools**. It can read and change real user data, and every change goes through a **signed, expiring, single-use confirmation step** |
+| 👥 **4 role-based apps in one** | Consumer, Pickup Partner, Segregation Centre, and Admin, each with its own dashboard and permissions |
+| 💸 **Real money movement** | Automatic **UPI payouts** through the Cashfree Payouts API, plus partner wallets, retries, and status reconciliation |
+| 🔄 **8-stage state machine** | Every request moves through a controlled lifecycle with an audit trail, OTP handover, and recalculation from actual weights |
+| ⚡ **Real-time** | WebSocket push notifications authenticated with the same JWT as the REST API |
+| 🧪 **Well tested** | 160+ pytest tests, including full end-to-end lifecycle tests and security tests for the AI agent |
+
+> **Scale:** about 79 REST/WebSocket endpoints · 20 SQLAlchemy models · 45+ React routes · Docker + Render one-click deploy
 
 ---
 
-## 3. Project structure
+## 🤖 The AI Agent
 
-```
-├── docker-compose.yml          # Multi-service Docker dev environment
-├── render.yaml                 # Render.com Blueprint (one-click deploy)
-├── backend/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── app/
-│   │   ├── main.py             # FastAPI app, CORS, static /uploads mount
-│   │   ├── database.py         # SQLAlchemy engine/session
-│   │   ├── models.py           # 18 ORM models (User → Payout)
-│   │   ├── schemas.py          # Pydantic request/response schemas
-│   │   ├── auth.py             # JWT + password hashing + role dependencies
-│   │   ├── utils.py            # OTP generation, notifications, audit log
-│   │   ├── seed.py             # Creates tables + demo data on first run
-│   │   ├── cashfree.py         # Cashfree Payouts API client wrapper
-│   │   ├── cashfree_payout.py  # Consumer & partner UPI payout orchestration
-│   │   ├── knowledge_base.md   # RAG knowledge base for the AI chatbot
-│   │   ├── services/
-│   │   │   └── consumer_requests.py # Shared request create/update/cancel logic
-│   │   └── routers/
-│   │       ├── auth.py         # register/login/me/profile/change-password
-│   │       ├── common.py       # categories, notifications, public settings
-│   │       ├── consumer.py     # addresses, requests, quote accept/reject
-│   │       ├── centre.py       # quoting, partner assignment, inventory, analytics
-│   │       ├── partner.py      # pickup workflow (accept/start/OTP/deliver)
-│   │       ├── admin.py        # users, categories, settings, revenue, payouts
-│   │       ├── support.py      # support ticket creation and retrieval
-│   │       ├── chat.py         # AI chatbot (LangChain + Gemini)
-│   │       └── uploads.py      # item photo upload (saved to ./uploads)
-│   └── tests/
-│       ├── conftest.py         # pytest fixtures, test DB configuration
-│       ├── test_auth.py        # Auth endpoint tests
-│       ├── test_consumer.py    # Consumer endpoint tests
-│       ├── test_partner.py     # Partner endpoint tests
-│       ├── test_centre.py      # Centre endpoint tests
-│       ├── test_admin.py       # Admin endpoint tests
-│       ├── test_common.py      # Common endpoint tests
-│       ├── test_chat.py        # Gemini tools, confirmations, and ownership tests
-│       ├── test_e2e_lifecycle.py # Full pickup lifecycle tests
-│       ├── test_support.py     # Support ticket tests
-│       └── test_uploads.py     # Upload endpoint tests
-└── frontend/
-    ├── Dockerfile
-    ├── package.json
-    ├── tailwind.config.js
-    ├── vite.config.js
-    └── src/
-        ├── App.jsx              # Route definitions (45+ routes)
-        ├── main.jsx             # React entry point
-        ├── index.css            # Tailwind + custom styles
-        ├── api/
-        │   ├── client.js        # Axios instance + JWT interceptor
-        │   └── endpoints.js     # All API endpoint functions
-        ├── context/
-        │   ├── AuthContext.jsx   # Session state, login/logout, role routing
-        │   └── ThemeContext.jsx  # Dark/light mode toggle (localStorage)
-        ├── hooks/
-        │   ├── useServiceCities.js
-        │   ├── useDefaultCharges.js
-        │   └── useIsMobile.js   # Responsive breakpoint detection
-        ├── components/
-        │   ├── layout/
-        │   │   ├── AppShell.jsx      # Sidebar (desktop) + bottom nav (mobile)
-        │   │   └── PublicLayout.jsx  # Marketing site navbar/footer
-        │   ├── ui/
-        │   │   ├── Primitives.jsx    # Spinner, Modal, StatTile, EmptyState
-        │   │   ├── StatusBadge.jsx   # Color-coded status pills
-        │   │   └── Stamp.jsx         # Rubber-stamp animation for terminal states
-        │   ├── AIChatDrawer.jsx      # Slide-out AI chatbot (Gemini)
-        │   ├── MapPicker.jsx         # Interactive Leaflet map + geocoding
-        │   ├── MapViewer.jsx         # Read-only Leaflet map (partner view)
-        │   ├── NotificationBell.jsx  # Real-time notification dropdown
-        │   ├── PaginatedList.jsx     # Reusable search + pagination wrapper
-        │   ├── ItemPhotos.jsx        # Photo gallery viewer
-        │   ├── RequestCard.jsx       # Summary card for collection requests
-        │   ├── Timeline.jsx          # Vertical status history log
-        │   ├── ProtectedRoute.jsx    # Auth + role guard wrapper
-        │   └── PendingApprovalNotice.jsx
-        ├── constants/
-        │   └── status.js        # STATUS_FLOW, STATUS_META color schemes
-        ├── utils/
-        │   ├── date.js          # IST date/time formatters
-        │   └── formatDims.js    # L×B×H dimension formatter
-        └── pages/
-            ├── Profile.jsx      # Shared profile page for every role
-            ├── Support.jsx      # Shared support ticket page for every role
-            ├── NotFound.jsx     # 404 page
-            ├── public/          # Home, HowItWorks, Pricing, Impact, FAQ,
-            │                    # Contact, Privacy, Terms
-            ├── auth/            # Login, Register
-            ├── consumer/        # Dashboard, Addresses, NewRequest, Requests,
-            │                    # RequestDetail, Certificate, Impact
-            ├── partner/         # Dashboard, Assignments, RequestDetail,
-            │                    # History, Earnings
-            ├── centre/          # Dashboard, IncomingRequests, ActiveRequests,
-            │                    # Inventory, History, RequestDetail
-            └── admin/           # Dashboard, Users, Categories, Settings,
-                                 # Requests, Revenue, Payouts, PartnerBalances,
-                                 # AuditLog, AdminSupport
+The most interesting engineering in this project is the **in-app assistant**. Answering FAQs with an LLM is easy. Letting an LLM **create, update, and cancel real orders** without it ever acting on its own, leaking another user's data, or being replayed is much harder. This agent was built for that second case.
+
+### How it works
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Consumer
+    participant FE as React Chat Drawer
+    participant API as FastAPI /api/chat
+    participant LLM as Gemini (LangChain)
+    participant T as Scoped Tools
+    participant DB as Database
+
+    U->>FE: "Book a pickup for my old laptop"
+    FE->>API: message + bounded history
+    API->>LLM: role-specific system prompt + knowledge base + tools
+    loop Tool-calling loop (max 4 steps)
+        LLM->>T: list_my_addresses()
+        T->>DB: query (filtered by user_id)
+        DB-->>T: 3 records + has_more
+        T-->>LLM: JSON result
+    end
+    LLM->>T: create_pickup_order(...)
+    T-->>API: preview + HMAC-signed confirmation token (10 min TTL)
+    API-->>FE: reply + pending_action
+    FE-->>U: Shows order preview with a Confirm button
+    U->>FE: Confirm
+    FE->>API: confirmed_action + token
+    API->>API: verify HMAC · user · args · expiry · not already used
+    API->>DB: create order (shared service layer)
+    API->>DB: record token fingerprint in audit log (prevents replay)
+    API-->>FE: "Pickup order #42 placed"
 ```
 
+### What makes it safe enough for production
+
+| Problem | How it's solved |
+|---|---|
+| **The LLM must not write to the database directly** | Write tools only return a *preview* plus a confirmation token. The server performs the write only after the user explicitly confirms |
+| **Tampered or forged actions** | Tokens are **HMAC-SHA256** over `(user_id, exact arguments, expiry)`. If any argument changes, verification fails. Comparison uses constant-time `hmac.compare_digest` |
+| **Replay attacks** | A SHA-256 fingerprint of each used token is written to the audit log, and reused tokens are rejected |
+| **Cross-user data access** | Tools are built **per request**, with the authenticated user's DB session and ID captured in a closure. Every lookup goes through an ownership check |
+| **Role escalation** | Only consumers get tools. Partners, centres, and admins get a knowledge-only assistant with a separate system prompt. Confirmations from non-consumers return `403` |
+| **Hallucinated data** | The system prompt treats tool results as authoritative and forbids inventing IDs, prices, statuses, or addresses |
+| **Context and cost growth** | Chat history is capped at 20 messages and bulk tools return **3 records at a time** with `has_more`. The agent asks before loading more |
+| **Internal details leaking into replies** | Replies are post-processed to replace tool names, JSON keys, and pagination fields with plain language |
+| **Duplicated business logic** | The agent calls the **same service layer** as the REST API (`services/consumer_requests.py`), so validation rules can't drift apart |
+| **Model failures** | Tool exceptions are caught and returned to the model as safe error messages. Gemini outages return a clean `502` without leaking internals |
+
+### Agent toolset
+
+| Read tools | Write tools (confirmation required) |
+|---|---|
+| `list_my_addresses` · `list_available_categories` · `list_my_orders` · `get_my_order` · `get_my_impact` · `get_my_earnings` · `list_my_support_tickets` · `summarize_my_support_tickets` | `create_pickup_order` · `update_order` · `cancel_order` · `remove_order` · `create_support_ticket` · `update_support_ticket` |
+
+Tool inputs are validated with **Pydantic schemas**. The model is configurable through `GEMINI_MODEL` and runs at `temperature=0.2` for consistent tool use. General questions are answered from a curated domain **knowledge base** (pricing, data-wiping guidance, service areas, process) that is injected into the system prompt.
+
 ---
 
-## 4. Environment variables
+## 🏗 Architecture
 
-| Variable | Required | Where | Description |
-|----------|----------|-------|-------------|
-| `GOOGLE_API_KEY` | Yes | Backend | Google Gemini API key (powers the AI chatbot) |
-| `SECRET_KEY` | Yes (prod) | Backend | Signs JWTs and Gemini action-confirmation tokens; Render generates it automatically |
-| `DATABASE_URL` | No | Backend | Defaults to `sqlite:///./ewaste.db`; set to a PostgreSQL URL for production |
-| `CASHFREE_CLIENT_ID` | No | Backend | Cashfree Payouts API client ID (payouts disabled without it) |
-| `CASHFREE_CLIENT_SECRET` | No | Backend | Cashfree Payouts API secret |
-| `STRIPE_SECRET_KEY` | No | Backend | Stripe API key (reserved for future use) |
-| `FRONTEND_URL` | No | Backend | Frontend origin for CORS (auto-set on Render) |
-| `VITE_API_URL` | No | Frontend | Backend API base URL (defaults to `http://localhost:8000`) |
+```mermaid
+flowchart LR
+    subgraph Client["Frontend · React 19 + Vite"]
+        UI["4 role-based apps<br/>Consumer · Partner · Centre · Admin"]
+        Chat["AI Chat Drawer"]
+        Map["Leaflet Maps"]
+    end
+
+    subgraph Server["Backend · FastAPI"]
+        Auth["JWT Auth +<br/>Role Guards"]
+        Routers["Domain Routers<br/>consumer · partner · centre · admin"]
+        Agent["LLM Agent<br/>LangChain tool-calling"]
+        Svc["Shared Service Layer"]
+        WS["WebSocket<br/>Notification Manager"]
+        Pay["Payout Orchestrator"]
+    end
+
+    DB[("PostgreSQL / SQLite<br/>SQLAlchemy 2.0")]
+    Gemini(["Google Gemini"])
+    CF(["Cashfree Payouts<br/>UPI"])
+    OSM(["OpenStreetMap +<br/>Nominatim"])
+
+    UI -- REST + JWT --> Auth --> Routers --> Svc --> DB
+    Chat -- REST --> Agent --> Svc
+    Agent <--> Gemini
+    UI <-- live events --> WS
+    Routers --> Pay --> CF
+    Map --> OSM
+```
+
+### Request lifecycle
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> PENDING: Consumer submits
+    PENDING --> QUOTED: Centre quotes
+    QUOTED --> ACCEPTED: Consumer accepts<br/>(UPI or Cash)
+    QUOTED --> REJECTED: Consumer rejects
+    ACCEPTED --> ASSIGNED: Centre assigns /<br/>partner self-accepts
+    ASSIGNED --> OUT_FOR_PICKUP: Partner starts
+    OUT_FOR_PICKUP --> PICKED_UP: OTP verified +<br/>actual weights → UPI payout
+    PICKED_UP --> AT_CENTRE: Delivered → inventory
+    AT_CENTRE --> COMPLETED: Partner fee credited,<br/>reward points issued
+    PENDING --> CANCELLED
+    QUOTED --> CANCELLED
+    ACCEPTED --> CANCELLED
+    COMPLETED --> [*]
+```
+
+Every transition is role-checked, written to a per-request timeline, and pushed to the relevant users over WebSocket.
 
 ---
 
-## 5. Running it locally
+## ✨ Features by role
 
-### Option A: Using Docker (Recommended)
+<details open>
+<summary><b>🏠 Consumer</b></summary>
 
-You don't need Python or Node.js installed. With Docker installed, simply run:
+- **Map-based address picker**: drop a pin and the street, pincode, and coordinates are filled in through reverse geocoding
+- List items by category with **dimensions (L×B×H) and photos**, so partners know what vehicle the job needs
+- Choose **Standard or Priority** pickup, then accept or reject the centre's itemised quotation
+- Choose **UPI**, which pays out automatically at pickup, or **Cash**
+- **My Impact**: kg recycled, estimated CO₂e avoided, reward points, and milestone badges
+- Downloadable **recycling certificate**, one-click **reorder**, a **referral program**, and partner/centre **ratings**
+- **AI assistant** that can find orders, book pickups, open support tickets, and summarise earnings in chat
+</details>
+
+<details>
+<summary><b>🛵 Pickup Partner</b></summary>
+
+- **Job marketplace** showing unassigned jobs in your city that you can self-accept, like a gig-work app
+- Availability toggle that is automatically locked while a job is active
+- **Google Maps turn-by-turn** deep link from the job detail page
+- **OTP handover** at the doorstep, with actual weights entered per item so the payout is recalculated from real data
+- **Earnings wallet** (total / paid / pending). The fee is stored per job, so later fee changes don't rewrite history
+</details>
+
+<details>
+<summary><b>🏭 Segregation Centre</b></summary>
+
+- City-routed incoming requests, an itemised **quotation builder**, and partner assignment with ratings shown
+- **Warehouse inventory** with a capacity gauge, filled automatically when items are delivered
+- **Chain of custody**: dispatch items to a named licensed recycler, then mark them recycled
+- **Finance ledger** and analytics dashboards built with Recharts
+</details>
+
+<details>
+<summary><b>🛡 Admin</b></summary>
+
+- **Revenue analytics** by month and city: material value, handling revenue, partner payouts, and platform commission
+- **Payouts console** showing every Cashfree transfer, live status checks, and **retry for failed payouts**
+- **Partner balances** with one-click UPI settlement
+- Approval workflow for partners and centres, plus user management
+- Live **platform settings** (service cities, fees, commission %) that take effect without a restart
+- Category pricing with CO₂e factors, an **audit log** of every sensitive action, and a support inbox
+</details>
+
+<details>
+<summary><b>🌐 Platform-wide</b></summary>
+
+- Real-time WebSocket notifications with unread badges
+- Dark and light mode, a responsive layout (sidebar on desktop, bottom navigation on mobile), and searchable paginated tables
+- Marketing site: Home, How It Works, Pricing, Impact, FAQ, Contact, Privacy, Terms
+</details>
+
+---
+
+## 🧠 Engineering Decisions
+
+- **Server-side human-in-the-loop instead of trusting the prompt.** The prompt tells the model to ask for confirmation, but the *server* enforces it. Even if the model is jailbroken, the most it can produce is a preview.
+- **One service layer for both REST and AI.** Order create, update, and cancel logic lives in `services/consumer_requests.py` and is shared by the HTTP routes and the agent tools. The agent can't bypass validation the UI enforces.
+- **Values stored at the time of the transaction.** Platform commission and partner pickup fee are copied onto each request when it is processed, so admins can change pricing without rewriting past revenue.
+- **Actual weight over estimate.** Partner-weighed values replace consumer estimates for payout calculation, and the agent reports which source a number came from (`actual` or `estimate`).
+- **Fail fast in production.** The app refuses to start without `SECRET_KEY` in production instead of falling back to a development secret.
+- **Secure admin provisioning.** Admin accounts can't be created through the public registration API. They are provisioned from environment variables at startup or with a reset script.
+- **City-based tenancy.** Centres only see requests in their city, and partners can only be assigned within it.
+- **Zero-setup local development, Postgres in production.** SQLite runs locally with no configuration, and PostgreSQL is used on Render. A lightweight additive schema upgrader runs on startup.
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **AI / LLM** | LangChain (tool calling), `langchain-google-genai`, Google Gemini, Pydantic tool schemas, HMAC-signed action tokens |
+| **Backend** | FastAPI, SQLAlchemy 2.0, Pydantic v2, PyJWT, passlib/bcrypt, WebSockets, httpx |
+| **Frontend** | React 19, Vite 8, React Router 7, Tailwind CSS, Recharts, Leaflet / react-leaflet, Axios, react-markdown |
+| **Data** | PostgreSQL (production), SQLite (development) |
+| **Payments** | Cashfree Payouts API (UPI transfers to consumers and partners) |
+| **Maps** | OpenStreetMap tiles, Nominatim geocoding, Google Maps deep links |
+| **DevOps** | Docker, Docker Compose, Render Blueprint (`render.yaml`) |
+| **Quality** | pytest + pytest-cov, oxlint |
+
+---
+
+## 🚀 Quick Start
+
+### Option A: Docker (recommended)
+
 ```bash
-# Set Gemini key (required for the AI chatbot)
-export GOOGLE_API_KEY="your_actual_api_key_here"
+git clone https://github.com/rafrafreza/Reloop-E-Waste-Logistics-Platform.git
+cd Reloop-E-Waste-Logistics-Platform
+
+export GOOGLE_API_KEY="your_gemini_api_key"
+export SECRET_KEY="a_long_random_string"
 
 docker compose up --build -d
 ```
-- API base: **http://localhost:8000**
-- Interactive API docs (Swagger UI): **http://localhost:8000/docs**
-- App: **http://localhost:5173**
 
-### Option B: Manual Setup
+| Service | URL |
+|---|---|
+| Web app | http://localhost:5173 |
+| API | http://localhost:8000 |
+| Swagger docs | http://localhost:8000/docs |
 
-You need **Python 3.10+** and **Node.js 18+** installed.
+### Option B: Manual setup
 
-#### Backend (Terminal 1)
-
+**Backend** (Python 3.11+)
 ```bash
 cd backend
-python3 -m venv venv
-
-# Activate the virtual environment
-source venv/bin/activate        # macOS / Linux
-venv\Scripts\activate           # Windows
-
+python -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Export your Gemini API Key before running the server
-export GOOGLE_API_KEY="your_actual_api_key_here"
-
-# Windows PowerShell equivalent:
-# $env:GOOGLE_API_KEY="your_actual_api_key_here"
-
-# Optional Gemini model override. The current default is gemini-3.5-flash-lite.
-# $env:GEMINI_MODEL="gemini-3.6-flash"
-
-# Required in production; local development uses a built-in fallback
-export SECRET_KEY="replace_with_a_long_random_secret"
-
-# (Optional) For Cashfree payouts:
-# export CASHFREE_CLIENT_ID="..."
-# export CASHFREE_CLIENT_SECRET="..."
-
+export GOOGLE_API_KEY="your_gemini_api_key"
+export SECRET_KEY="a_long_random_string"
 uvicorn app.main:app --reload --port 8000
 ```
 
-The first run automatically creates `ewaste.db` (SQLite) and seeds demo
-accounts + categories. You should see the demo login credentials printed in
-the terminal.
-
-- API base: **http://localhost:8000**
-- Interactive API docs (Swagger UI): **http://localhost:8000/docs**
-
-#### Frontend (Terminal 2)
-
+**Frontend** (Node 18+)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-- App: **http://localhost:5173**
+On first start the database is created automatically and an admin account is provisioned from `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Register consumer, partner, and centre accounts from `/register`, then approve partners and centres from **Admin → Users**.
 
-Open the app in your browser, and sign in with one of the demo accounts
-below (or use the quick-fill buttons on the login page).
+### Environment variables
 
----
-
-## 5.5. Deployment (Render)
-
-This project includes a `render.yaml` Blueprint for instant, one-click deployments to [Render.com](https://render.com/).
-When you connect your GitHub repository to Render as a Blueprint, it will automatically:
-1. Provision a **PostgreSQL database** (`ewaste-db`, free tier).
-2. Deploy the Backend as a **Docker Web Service** with `SECRET_KEY` auto-generated and `DATABASE_URL` linked to the database.
-3. Deploy the Frontend as a free, ultra-fast **Static Site** (built with `npm run build`, served from `dist/`).
-4. Link the frontend to the backend's public URL via the `VITE_API_URL` environment variable.
-
-> **Note:** You must manually enter `GOOGLE_API_KEY` (and optionally `CASHFREE_CLIENT_ID` / `CASHFREE_CLIENT_SECRET`) in the Render Dashboard after deployment.
+| Variable | Required | Description |
+|---|---|---|
+| `SECRET_KEY` | ✅ (production) | Signs JWTs, WebSocket auth, and AI confirmation tokens |
+| `GOOGLE_API_KEY` | ✅ for AI | Gemini API key |
+| `GEMINI_MODEL` | — | Override the default Gemini model |
+| `DATABASE_URL` | — | Defaults to SQLite. Set a PostgreSQL URL for production |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Admin account provisioned at startup |
+| `CASHFREE_CLIENT_ID` / `CASHFREE_CLIENT_SECRET` | — | Cashfree credentials, required for UPI payouts |
+| `FRONTEND_URL` | — | Allowed CORS origin (set automatically on Render) |
+| `VITE_API_URL` | — | Backend URL used by the frontend |
 
 ---
 
-## 6. Demo accounts
-
-| Role     | Email                       | Password    |
-|----------|------------------------------|-------------|
-| Consumer | consumer@reloop.com      | consumer123 |
-| Partner  | partner@reloop.com       | partner123  |
-| Centre   | centre@reloop.com        | centre123   |
-| Admin    | admin@reloop.com         | admin123    |
-
-There is also a second Delhi-based centre/partner pair
-(`centre.delhi@reloop.com` / `partner.delhi@reloop.com`, same
-passwords) to demonstrate city-based routing — a request placed with a Delhi
-address will only be visible to the Delhi centre.
-
-You can also register new accounts from the app (`/register`) for any role
-except Admin. **Pickup Partner and Segregation Centre** signups require
-admin approval before they can sign in — see section 9 below.
-
----
-
-## 7. Resetting the database
-
-The SQLite database is a single file at `backend/ewaste.db`. To start over
-with a clean, freshly-seeded database, just stop the server and delete it:
-
-```bash
-rm backend/ewaste.db
-```
-
-It will be recreated and reseeded the next time you start the backend.
-
-The application creates missing tables on startup and applies the current
-lightweight additive schema upgrade for existing SQLite and PostgreSQL
-databases. This covers nullable columns such as the request address reference.
-For larger production schema changes, use a proper migration tool such as
-Alembic rather than relying on the lightweight upgrader. Deleting
-`backend/ewaste.db` is still the quickest way to reset local demo data.
-
----
-
-## 8. Running tests
-
-### Backend (pytest)
+## 🧪 Testing
 
 ```bash
 cd backend
-source venv/bin/activate
-pytest tests/ -v
+pytest tests/ -v --cov=app
 ```
 
-The backend suite contains 156 tests covering authentication, consumer,
-partner, centre, admin, common, support, uploads, payouts, chat tools, and
-end-to-end lifecycle behavior. Tests use an isolated SQLite database through
-`tests/conftest.py`.
+The suite has **160+ tests** across 13 modules. Each run uses an isolated SQLite database.
 
-### Frontend (linting)
+- **Full lifecycle tests**: request → quote → accept → assign → OTP → pickup → centre → complete
+- **AI agent tests**: role-restricted prompts and tools, preview-only writes, forged or invalid confirmations, and cross-user data isolation
+- **Payout tests**: Cashfree success, failure, and cash paths
+- Auth, role guards, uploads, support, admin settings, and partner availability rules
 
-```bash
-cd frontend
-npx oxlint
+Frontend: `npm run lint` (oxlint) and `npm run build`.
+
+---
+
+## ☁️ Deployment
+
+The repository includes a **Render Blueprint** (`render.yaml`) that sets up the whole stack in one step:
+
+1. A managed **PostgreSQL** database
+2. The **FastAPI backend** as a Docker web service, with `SECRET_KEY` generated automatically
+3. The **React frontend** as a static site, connected to the backend URL automatically
+
+Add `GOOGLE_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and (optionally) the Cashfree keys in the Render dashboard.
+
+---
+
+## 📂 Project Structure
+
+```
+backend/
+├── app/
+│   ├── main.py                 # App factory, CORS, startup provisioning
+│   ├── models.py               # 20 SQLAlchemy models
+│   ├── auth.py                 # JWT, hashing, role dependencies
+│   ├── cashfree.py             # Cashfree Payouts client
+│   ├── cashfree_payout.py      # Consumer & partner payout orchestration
+│   ├── websocket.py            # Real-time notification manager
+│   ├── knowledge_base.md       # Domain knowledge used by the assistant
+│   ├── services/
+│   │   └── consumer_requests.py  # Shared logic used by REST and the AI agent
+│   └── routers/                # auth · consumer · partner · centre · admin
+│                               # chat (AI agent) · support · uploads · ws
+├── tests/                      # 160+ pytest tests
+└── reset_admin.py              # Admin recovery script
+frontend/
+└── src/
+    ├── pages/                  # public · auth · consumer · partner · centre · admin
+    ├── components/             # AIChatDrawer, MapPicker, Timeline, PaginatedList, …
+    ├── context/                # Auth, Theme, WebSocket providers
+    └── api/                    # Axios client + endpoint functions
 ```
 
-No automated UI test suite (Vitest / Cypress / Playwright) is currently
-configured — see § 11 for planned improvements.
+---
+
+## 🗺 Roadmap
+
+- [ ] Webhook-based payout reconciliation with signature verification
+- [ ] Retrieval with a vector index over the knowledge base as it grows
+- [ ] Agent evaluation suite (tool-selection accuracy, refusal behaviour, regression prompts)
+- [ ] SMS delivery for handover OTPs
+- [ ] Alembic migrations and a Redis/Celery background job queue
+- [ ] Playwright end-to-end UI tests and i18n
 
 ---
 
-## 9. Feature tour
+## 👥 Team
 
-Beyond the core pickup pipeline, every role gets a full set of tools:
+Reloop was built by a four-person team:
 
-**Consumer**
-- **Interactive map picker** for addresses: drop a pin, search by city,
-  auto-fill street/pincode/coordinates via Nominatim reverse geocoding.
-- Item photos (multiple) and L×B×H dimensions on every item, so partners
-  know what vehicle a job needs before they arrive.
-- **Payment method selection**: choose UPI (triggers an automatic Cashfree
-  payout on pickup) or Cash when accepting a quotation.
-- **My Impact** page: personal kg recycled, estimated CO₂e avoided, reward
-  points, and milestone badges (5 kg → 500 kg).
-- Referral program: every user gets a referral code (`/register?ref=CODE`
-  pre-fills it); both sides earn reward points on a successful signup.
-- **Reorder**: duplicate a past request's items into a new one in one click.
-- Downloadable/printable **recycling certificate** for completed requests.
-- Rate the pickup partner and centre (1–5 stars + optional review) after
-  completion; ratings feed each partner/centre's public average.
-- **Support** ticket system, optionally linked to a specific request.
-
-- **AI-assisted account operations**: the authenticated consumer assistant can
-  list saved addresses, list orders, retrieve an individual order, list and
-  summarize support tickets, retrieve earnings and impact statistics, and
-  prepare order/support-ticket changes for confirmation.
-- **Order creation choices**: the assistant asks the consumer to select a
-  saved address and choose Standard or Priority pickup before preparing an
-  order preview. No order is created until the consumer confirms it.
-- **Paginated assistant results**: bulk address, order, and support-ticket
-  results are limited to three records. When more records exist, the assistant
-  asks before retrieving the next three.
-- **Weight-source transparency**: assistant order summaries use the pickup
-  partner's actual item weight when available and otherwise show the consumer's
-  estimate, with the source labeled accordingly.
-
-**Pickup Partner**
-- **Job marketplace**: browse unassigned accepted requests in your city and
-  self-accept, in addition to being assigned by a centre.
-- Self-service **availability toggle** (Available / Offline) — locked to
-  "On a job" while assigned, like a real gig-work app.
-- **Google Maps navigation** deep-link from the request detail page for
-  turn-by-turn directions to the pickup address.
-- **OTP verification** with actual weight entry per item — recalculates
-  the final payout based on weighed quantities.
-- Partner acceptance changes availability to **Busy**; delivery returns the
-  partner to **Available**, and partners cannot go offline while an active job
-  is assigned.
-- **Earnings** page: total/paid/pending wallet balance, per-job history,
-  and your rating — the pickup fee is snapshotted per job from an
-  admin-configurable setting so later fee changes don't rewrite history.
-- **UPI payout**: wallet balance settled via Cashfree when admin processes
-  payout from the Partner Balances page.
-
-**Segregation Centre**
-- **Dashboard with analytics**: 4 Recharts visualizations (inventory status,
-  category breakdown, processing trends, partner distribution).
-- **Warehouse capacity bar** (used vs. total kg) on the dashboard and
-  inventory page.
-- Chain-of-custody workflow: bulk-select warehouse items → **Dispatch** to
-  a named licensed recycler → **Mark recycled**, closing the loop that
-  the original MVP left open at "item arrived at centre."
-- Partner ratings shown right in the assign-partner picker, so a centre can
-  factor trust into who gets the job.
-
-**Admin**
-- **Revenue** analytics: material value, handling revenue, partner payouts,
-  and platform commission, broken down by month and by city, with Recharts
-  bar charts.
-- **Dashboard** with 6 analytics charts: request status distribution,
-  revenue trends, category breakdown, city breakdown, user role distribution,
-  and inventory status.
-- **Payouts** management page: view all Cashfree transfers (Pending,
-  Processing, Success, Failed, Cash Collected), check live transfer status,
-  and retry failed payouts.
-- **Partner Balances** page: view each partner's wallet balance and trigger
-  UPI payout via Cashfree.
-- **Impact** stats (platform-wide kg recycled / CO₂e avoided) — the same
-  numbers power the public `/impact` marketing page.
-- **Audit log**: who approved/deactivated a user, changed a setting, or
-  edited a category, and when.
-- **Support inbox**: respond to and resolve tickets from any role.
-- Category CO₂e factor is editable alongside price, feeding both the
-  impact stats and the consumer-facing sustainability estimates.
-
-**Platform-wide**
-- **AI Chatbot** (Gemini): a slide-out drawer accessible from every
-  authenticated page, powered by `langchain-google-genai` with a custom
-  `knowledge_base.md` system prompt. Answers questions about e-waste
-  disposal, category pricing, data wiping, and service availability. Its
-  consumer tools include address lookup, category lookup, order lookup and
-  creation, order update/cancel/remove, impact, earnings, support-ticket
-  creation/update/listing, and ticket summaries.
-- **Secure confirmations**: write operations create short-lived signed
-  confirmation tokens, enforce consumer ownership, require explicit user
-  confirmation, and reject token reuse.
-- **Conversation safeguards**: the chat endpoint validates message sizes and
-  history length, while the frontend sends a bounded recent history window.
-  User-facing replies are instructed and sanitized to avoid exposing tool
-  names or internal JSON fields.
-- **Dark / Light mode**: toggled via a sun/moon button in the header;
-  preference persisted in `localStorage`.
-- **Responsive mobile navigation**: fixed sidebar on desktop, bottom bar
-  with overflow drawer on mobile screens.
-- **Search & Pagination**: all heavy data tables use a reusable
-  `PaginatedList.jsx` component for scalable browsing and live search
-  filtering.
-- **Real-time notifications**: websocket notifications with an unread count
-  badge on the notification bell, with polling-based UI support retained for
-  compatibility.
-- **UI Aesthetics**: premium glassmorphism (backdrop blur) header, custom
-  color palette with circuit/copper/amber tones, rubber-stamp animations
-  for terminal statuses, and smooth slide-up drawer transitions.
+- **Rafraf Reza** ([@rafrafreza](https://github.com/rafrafreza)): Reloop MVP v1, landing page, item photos & dimensions, impact dashboard, recycling certificates, reorder & support, financial transparency overhaul (priority pickups, centre finance ledger, partner item tracking), secure admin provisioning, and production deployment
+- **Samar Kamboj**: backend foundation, initial AI chatbot, maps, Docker/Render setup, Cashfree payouts, WebSockets, and test suite
+- **Anurag Dubey**: frontend foundation, dashboards and analytics charts, theming and responsive UI, validation flows
+- **Gokul Vasudevan**: agentic AI assistant (role-aware tools and secure confirmations), payout hardening, and payout tests
 
 ---
 
-## 10. Design notes
+<div align="center">
 
-- **Roles are strict**: every backend endpoint is guarded by a
-  `require_role(...)` dependency, and the frontend mirrors this with
-  `ProtectedRoute`. A partner account can't reach `/centre/*` routes even by
-  typing the URL directly.
-- **City-based routing**: centres only see `PENDING` requests whose address
-  city matches their own city; pickup partners are only assignable (or can
-  only self-accept) within that same city.
-- **Partner self-assignment**: in addition to centre-initiated assignment,
-  partners can browse a marketplace of unassigned accepted requests in their
-  city and self-accept jobs.
-- **OTP handover**: a 6-digit OTP is generated when a partner is assigned
-  and must be entered by the partner (given to them by the consumer in
-  person) before a pickup can be marked collected — this models a basic
-  chain-of-custody control.
-- **Cashfree payouts**: when a partner verifies the OTP and records actual
-  weights, the system recalculates the final payout amount and triggers an
-  automatic UPI transfer to the consumer via Cashfree (if UPI was selected).
-  Partner earnings accumulate in a wallet and are paid out by admin from
-  the Partner Balances page.
-- **Notifications** are created server-side at each state transition and
-  delivered through the notification manager. The WebSocket endpoint validates
-  the same JWT secret used by the REST API.
-- **Partner/Centre approval**: registering as a Pickup Partner or
-  Segregation Centre creates the account with `is_active=False`. Logging in
-  before approval returns a dedicated "application under review" screen
-  instead of a dashboard. An Admin approves the account from **Admin →
-  Users** (the same Activate/Deactivate toggle used for account management).
-  Consumer accounts are active immediately and never need approval.
-- **Profile editing**: every role has a Profile page (name, phone, and
-  role-specific fields — vehicle number and UPI ID for partners; centre
-  name, address, and city for centres) plus a change-password form.
-- **Admin settings actually take effect**: `service_cities` drives every
-  city dropdown in the app (address form, registration, profile), and
-  `default_handling_charge` / `default_pickup_charge` pre-fill the centre's
-  quotation form. `platform_fee_percent` and `partner_pickup_fee` drive the
-  revenue model. Update any of them from **Admin → Settings** and they
-  apply immediately (no restart needed).
-- **Item dimensions & photos**: each item in a request can optionally record
-  L×B×H (cm) and multiple photos, uploaded to `backend/uploads/items/` and
-  served statically at `/uploads/...`. This is shown to the pickup partner
-  on the request detail page so they can judge what vehicle a job needs.
-- **Dark mode**: toggled via a sun/moon button in the header; preference
-  persisted in `localStorage` (`reloop_theme`); implemented via Tailwind's
-  `.dark` class strategy with a custom `ThemeContext` provider.
-- **Maps**: consumer address form includes an interactive Leaflet map with
-  click-to-place marker, city search, and Nominatim reverse geocoding.
-  Partner request detail shows a read-only map pin and a "Navigate" button
-  that deep-links to Google Maps for turn-by-turn directions.
-- **Mobile navigation**: the four role dashboards (Consumer, Partner,
-  Centre, Admin) use a fixed sidebar on desktop and a bottom bar with a
-  hamburger menu on mobile (`md:` breakpoint and below) — tap **Menu** to
-  open the full navigation drawer. The public marketing site keeps its own
-  top navbar/hamburger, which is a separate, unrelated layout.
-- **AI Assistant**: a custom AI chatbot powered by `langchain-google-genai`
-  uses a custom `knowledge_base.md` system prompt to help users with
-  e-waste queries and consumer account operations. Write operations are
-  confirmation-gated, scoped to the authenticated consumer, and signed with
-  the application secret. The chat interface is implemented as a sliding
-  `AIChatDrawer.jsx` component accessible from the app header.
-- **Search & Pagination**: all heavy data tables (e.g., Active Requests,
-  Users, Assignments) utilize a reusable `PaginatedList.jsx` component for
-  scalable browsing and live search filtering.
+**If you found this project interesting, consider giving it a ⭐**
 
----
-
-## 11. AI Assistant enhancements and other related improvements and fixes
-
-### Gemini assistant
-
-- Added fourteen consumer-scoped tools for addresses, categories, orders,
-  impact, earnings, and support tickets.
-- Added order creation, update, cancellation, and removal previews with
-  explicit confirmation before database mutation.
-- Added support-ticket creation and follow-up previews with confirmation.
-- Added signed, expiring confirmation tokens and replay protection through
-  audit logs.
-- Added consumer ownership checks for orders, addresses, tickets, and linked
-  request IDs.
-- Added three-record paging for bulk addresses, orders, and support tickets.
-- Added bounded chat history handling to respect the endpoint's 20-message
-  validation limit.
-
-### Pickup and data accuracy
-
-- Partner-entered actual item weights are persisted during OTP verification.
-- Final material value and payout are recalculated from actual weights when
-  they are available.
-- Assistant order summaries expose both the original estimate and the selected
-  weight source (`actual` or `estimate`).
-- Partner availability now reflects assignment state and prevents going
-  offline during active jobs.
-- Shared consumer request service logic keeps create, update, and cancel
-  behavior consistent across REST and assistant flows.
-
-### Security and deployment
-
-- `SECRET_KEY` is shared by REST JWTs, WebSocket authentication, and assistant
-  confirmation tokens.
-- Production mode fails fast when `SECRET_KEY` is missing instead of silently
-  using a development secret.
-- Render sets `APP_ENV=production` and generates a persistent `SECRET_KEY`.
-- Docker Compose requires `SECRET_KEY` from the host environment.
-- Startup schema upgrades support additive changes on SQLite and PostgreSQL.
-- Startup no longer blocks on an external IP-discovery request.
-- Existing admin support responses, registration compatibility, referral
-  signups, and partner lifecycle behavior are covered by regression tests.
-
-### Validation
-
-- Backend: **156 tests passed**.
-- Frontend: production Vite build passed with 1011 modules transformed.
-- Static diagnostics: no errors reported in the changed backend or frontend
-  files.
-
-### Deployment checklist
-
-Before deploying, configure `SECRET_KEY`, `GOOGLE_API_KEY`, and `DATABASE_URL`.
-For Cashfree production payouts, also configure production credentials,
-webhook signature verification, domain whitelisting, and backend payment
-re-verification. Do not commit `.env` files, runtime uploads, API keys, or
-generated database files.
-
----
-
-## 12. Possible next versions
-
-The codebase intentionally leaves room to grow without a rewrite:
-
-- Swap SQLite → PostgreSQL locally by changing `DATABASE_URL` in
-  `database.py` (already PostgreSQL on Render).
-- Add Redis + Celery for async notification delivery / SMS-OTP.
-- WebSocket notifications to replace the current 15-second polling.
-- Vitest / Playwright frontend test suite.
-- Multi-language i18n support.
-- SMS OTP delivery (currently OTP is displayed in-app only).
-- Track approval history separately from active/inactive status, so an
-  admin-deactivated account can be distinguished from one that was never
-  approved in the first place.
+</div>
